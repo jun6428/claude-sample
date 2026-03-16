@@ -8,6 +8,7 @@ import Board from '@/components/Board';
 import PlayerPanel from '@/components/PlayerPanel';
 import ActionPanel from '@/components/ActionPanel';
 import GameLog from '@/components/GameLog';
+import DevPanel from '@/components/DevPanel';
 
 export default function GamePage() {
   const params = useParams();
@@ -133,7 +134,17 @@ export default function GamePage() {
 
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Board - left */}
+        {/* Left panel: online layer (log, dev) */}
+        <div className="w-64 flex-shrink-0 bg-gray-900 border-r border-gray-700 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-3">
+            <GameLog log={log} />
+          </div>
+          <div className="flex-shrink-0 p-3 border-t border-gray-700">
+            <DevPanel sendAction={sendAction} />
+          </div>
+        </div>
+
+        {/* Board - center */}
         <div className="flex-1 overflow-auto bg-blue-950 flex items-center justify-center p-4">
           <Board
             gameState={gameState}
@@ -143,23 +154,17 @@ export default function GamePage() {
           />
         </div>
 
-        {/* Right panel */}
-        <div className="w-80 flex-shrink-0 bg-gray-900 border-l border-gray-700 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-3 space-y-3">
-            {/* Players */}
+        {/* Right panel: catan layer (players, actions) */}
+        <div className="w-72 flex-shrink-0 bg-gray-900 border-l border-gray-700 flex flex-col overflow-hidden">
+          <div className="flex-shrink-0 p-3 border-b border-gray-700">
             <PlayerPanel gameState={gameState} myPlayerIdx={myPlayerIdx} />
-
-            {/* Actions */}
+          </div>
+          <div className="flex-1 overflow-y-auto p-3">
             <ActionPanel
               gameState={gameState}
               myPlayerIdx={myPlayerIdx}
               sendAction={sendAction}
             />
-          </div>
-
-          {/* Game log - fixed at bottom */}
-          <div className="flex-shrink-0 p-3 border-t border-gray-700">
-            <GameLog log={log} />
           </div>
         </div>
       </div>

@@ -19,64 +19,9 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
   const errors = useGameStore((s) => s.errors);
   const clearErrors = useGameStore((s) => s.clearErrors);
 
-  const gameId = useGameStore((s) => s.gameId);
-
   const [tradeGive, setTradeGive] = useState<ResourceType>('wood');
   const [tradeReceive, setTradeReceive] = useState<ResourceType>('brick');
   const [showTrade, setShowTrade] = useState(false);
-
-  const handleSaveSnapshot = async () => {
-    const res = await fetch(`http://localhost:8000/api/games/${gameId}/snapshot`);
-    const data = await res.json();
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `catan-${gameId}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleLoadSnapshot = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const text = await file.text();
-    await fetch(`http://localhost:8000/api/games/${gameId}/snapshot`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: text,
-    });
-    window.location.reload();
-  };
-
-  const devPanel = (
-    <div className="border-t border-gray-700 pt-3 mt-3">
-      <p className="text-xs text-gray-500 mb-2">DEV</p>
-      <div className="flex gap-1 flex-wrap mb-2">
-        {RESOURCE_TYPES.map((r) => (
-          <button
-            key={r}
-            onClick={() => sendAction({ action: 'debug_add_resource', resource: r })}
-            className="bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs px-2 py-1 rounded transition-colors"
-          >
-            {r} +1
-          </button>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        <button
-          onClick={handleSaveSnapshot}
-          className="bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs px-2 py-1 rounded transition-colors"
-        >
-          📥 保存
-        </button>
-        <label className="bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs px-2 py-1 rounded transition-colors cursor-pointer">
-          📤 読込
-          <input type="file" accept=".json" className="hidden" onChange={handleLoadSnapshot} />
-        </label>
-      </div>
-    </div>
-  );
 
   const isMyTurn = myPlayerIdx !== null && current_player_idx === myPlayerIdx;
   const myResources = resources[String(myPlayerIdx)] || {};
@@ -147,7 +92,6 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
             <button onClick={clearErrors} className="text-gray-500 text-xs mt-1">✕ 消す</button>
           </div>
         )}
-        {devPanel}
       </div>
     );
   }
@@ -173,7 +117,6 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
         >
           トップに戻る
         </button>
-        {devPanel}
       </div>
     );
   }
@@ -362,8 +305,6 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
           {players[current_player_idx]?.name} のターンを待っています...
         </p>
       )}
-
-      {devPanel}
     </div>
   );
 }
