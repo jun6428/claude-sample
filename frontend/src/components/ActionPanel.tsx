@@ -150,15 +150,6 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
             </button>
           )}
 
-          {dice_rolled && (
-            <div className="bg-gray-700 rounded p-2 text-center">
-              <span className="text-white text-sm">ダイス: </span>
-              <span className="text-yellow-400 font-bold text-lg">
-                {dice_values[0]} + {dice_values[1]} = {diceTotal}
-              </span>
-            </div>
-          )}
-
           {/* Robber move instruction */}
           {needsRobberMove && (
             <div className="bg-red-900 rounded p-2">

@@ -23,7 +23,6 @@ interface BoardProps {
 
 export default function Board({ gameState, myPlayerIdx, sendAction, selectedAction }: BoardProps) {
   const { board, buildings, roads, robber_hex, phase, setup_step, current_player_idx } = gameState;
-
   const isMyTurn = myPlayerIdx !== null && current_player_idx === myPlayerIdx;
 
   // Compute bounding box for SVG viewport
@@ -175,7 +174,7 @@ export default function Board({ gameState, myPlayerIdx, sendAction, selectedActi
                 size={HEX_SIZE}
                 hasRobber={robber_hex === hex.hex_id}
                 isHighlighted={clickableHexes.has(hex.hex_id)}
-                onClick={clickableHexes.has(hex.hex_id) ? () => handleHexClick(hex.hex_id) : undefined}
+onClick={clickableHexes.has(hex.hex_id) ? () => handleHexClick(hex.hex_id) : undefined}
               />
             );
           })}

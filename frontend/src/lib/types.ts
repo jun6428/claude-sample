@@ -68,6 +68,7 @@ export interface GameState {
   winner: number | null;
   log: string[];
   bank: Record<ResourceType, number>;
+  last_burst: Record<string, number>;
 }
 
 export interface WebSocketMessage {

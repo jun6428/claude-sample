@@ -279,11 +279,13 @@ class ConnectionManager:
         state.add_log(f"{state.players[player_idx].name} rolled {d1}+{d2}={total}.")
 
         if total == 7:
-            # Discard for players with too many resources
+            # Record burst event, then auto-discard
+            state.last_burst = {}
             for i, player in enumerate(state.players):
                 count = state.count_resources(i)
                 if count > 7:
                     to_discard = count // 2
+                    state.last_burst[i] = to_discard
                     discarded = 0
                     for r in RESOURCE_TYPES:
                         while state.player_resources(i)[r] > 0 and discarded < to_discard:
@@ -552,6 +554,7 @@ class ConnectionManager:
         state.dice_rolled = False
         state.dice_values = (0, 0)
         state.robber_moved = False
+        state.last_burst = {}
         state.add_log(f"{state.players[state.current_player_idx].name}'s turn. Roll the dice!")
 
         await self.broadcast_state(game_id)
