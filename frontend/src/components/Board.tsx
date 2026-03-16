@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { GameState, PLAYER_COLOR_MAP, VertexData, EdgeData } from '@/lib/types';
+import { GameState, PLAYER_COLOR_MAP, RESOURCE_COLORS, RESOURCE_LABELS, PORT_EMOJI } from '@/lib/types';
 import HexTile from './HexTile';
 import { GameAction } from '@/lib/types';
 
@@ -266,6 +266,83 @@ onClick={clickableHexes.has(hex.hex_id) ? () => handleHexClick(hex.hex_id) : und
                 </g>
               );
             }
+          })}
+
+          {/* Render ports */}
+          {(board.ports || []).map((port, i) => {
+            const v1 = board.vertices[port.vertex_ids[0]];
+            const v2 = board.vertices[port.vertex_ids[1]];
+            if (!v1 || !v2) return null;
+            const mx = (v1.x + v2.x) / 2;
+            const my = (v1.y + v2.y) / 2;
+            // Board center (approx)
+            const bcx = (maxX + minX) / 2;
+            const bcy = (maxY + minY) / 2;
+            const dx = mx - bcx;
+            const dy = my - bcy;
+            const len = Math.sqrt(dx * dx + dy * dy) || 1;
+            const ux = dx / len; // 海方向の単位ベクトル
+            const uy = dy / len;
+            const extLen = 32;    // 頂点から海への延長距離
+            const labelDist = 30; // バッジの距離
+            const labelX = mx + ux * labelDist;
+            const labelY = my + uy * labelDist;
+            // 辺方向の単位ベクトル（v1→v2）
+            const edgeDx = v2.x - v1.x;
+            const edgeDy = v2.y - v1.y;
+            const edgeLen = Math.sqrt(edgeDx * edgeDx + edgeDy * edgeDy) || 1;
+            const ex = edgeDx / edgeLen;
+            const ey = edgeDy / edgeLen;
+            // 各頂点の破線方向：海方向 ± 辺方向を合成してV字に開く
+            const k = 1.2; // 辺方向の混合量（大きいほど辺と平行に近づく）
+            const d1x = ux + ex * k; const d1y = uy + ey * k; // v1用（v2方向へ寄る → ハの字）
+            const d2x = ux - ex * k; const d2y = uy - ey * k; // v2用（v1方向へ寄る → ハの字）
+            const d1len = Math.sqrt(d1x * d1x + d1y * d1y) || 1;
+            const d2len = Math.sqrt(d2x * d2x + d2y * d2y) || 1;
+            // 海側アンカー点
+            const a1x = v1.x + (d1x / d1len) * extLen;
+            const a1y = v1.y + (d1y / d1len) * extLen;
+            const a2x = v2.x + (d2x / d2len) * extLen;
+            const a2y = v2.y + (d2y / d2len) * extLen;
+            const isGeneric = port.port_type === '3:1';
+            const portColor = isGeneric ? '#E5E7EB' : (RESOURCE_COLORS[port.port_type] || '#9CA3AF');
+            // portColorを白と60%ブレンドして淡い背景色を生成
+            const hex = portColor.replace('#', '');
+            const pr = parseInt(hex.slice(0, 2), 16);
+            const pg = parseInt(hex.slice(2, 4), 16);
+            const pb = parseInt(hex.slice(4, 6), 16);
+            const f = 0.88;
+            const lr = Math.round(pr + (255 - pr) * f).toString(16).padStart(2, '0');
+            const lg = Math.round(pg + (255 - pg) * f).toString(16).padStart(2, '0');
+            const lb = Math.round(pb + (255 - pb) * f).toString(16).padStart(2, '0');
+            const lightColor = `#${lr}${lg}${lb}`;
+            return (
+              <g key={`port-${i}`}>
+                {/* v1 → 海への破線 */}
+                <line
+                  x1={v1.x} y1={v1.y} x2={a1x} y2={a1y}
+                  stroke={portColor} strokeWidth={2.5}
+                  strokeDasharray="5,4" strokeLinecap="round" opacity={0.9}
+                />
+                {/* v2 → 海への破線 */}
+                <line
+                  x1={v2.x} y1={v2.y} x2={a2x} y2={a2y}
+                  stroke={portColor} strokeWidth={2.5}
+                  strokeDasharray="5,4" strokeLinecap="round" opacity={0.9}
+                />
+                {/* 沖アンカー点 */}
+                <circle cx={a1x} cy={a1y} r={3} fill={portColor} opacity={0.6} />
+                <circle cx={a2x} cy={a2y} r={3} fill={portColor} opacity={0.6} />
+                {/* バッジ */}
+                <circle cx={labelX} cy={labelY} r={14}
+                  fill={lightColor}
+                  stroke={portColor} strokeWidth={2} />
+                <text x={labelX} y={labelY} textAnchor="middle" dominantBaseline="central"
+                  fontSize={14}>
+                  {PORT_EMOJI[port.port_type] ?? '⚓'}
+                </text>
+              </g>
+            );
           })}
 
           {/* Render clickable vertex highlights */}

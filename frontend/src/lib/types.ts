@@ -36,10 +36,17 @@ export interface EdgeData {
   adjacent_hexes: string[];
 }
 
+export interface PortData {
+  port_type: string;  // "3:1" | ResourceType
+  vertex_ids: [string, string];
+  edge_id: string;
+}
+
 export interface BoardData {
   hexes: Record<string, HexTileData>;
   vertices: Record<string, VertexData>;
   edges: Record<string, EdgeData>;
+  ports: PortData[];
 }
 
 export interface Building {
@@ -111,6 +118,19 @@ export const RESOURCE_LABELS: Record<string, string> = {
   wheat: '小麦',
   ore: '鉄鉱石',
   desert: '砂漠',
+};
+
+export const RESOURCE_EMOJI: Record<string, string> = {
+  wood:  '🌲',
+  brick: '🧱',
+  sheep: '🐑',
+  wheat: '🌾',
+  ore:   '⛰️',
+};
+
+export const PORT_EMOJI: Record<string, string> = {
+  ...RESOURCE_EMOJI,
+  '3:1': '⚓',
 };
 
 export const PLAYER_COLOR_MAP: Record<string, string> = {

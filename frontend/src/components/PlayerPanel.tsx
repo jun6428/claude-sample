@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { GameState, GameAction, PLAYER_COLOR_MAP, RESOURCE_LABELS, RESOURCE_COLORS, ResourceType } from '@/lib/types';
+import { GameState, GameAction, PLAYER_COLOR_MAP, RESOURCE_LABELS, RESOURCE_COLORS, RESOURCE_EMOJI, ResourceType } from '@/lib/types';
 
 interface PlayerPanelProps {
   gameState: GameState;
@@ -11,13 +11,6 @@ interface PlayerPanelProps {
 
 const RESOURCE_TYPES: ResourceType[] = ['wood', 'brick', 'sheep', 'wheat', 'ore'];
 
-const RESOURCE_EMOJI: Record<ResourceType, string> = {
-  wood: '🌲',
-  brick: '🧱',
-  sheep: '🐑',
-  wheat: '🌾',
-  ore: '⛰️',
-};
 
 export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: PlayerPanelProps) {
   const { players, current_player_idx, resources, phase, longest_road_player } = gameState;
