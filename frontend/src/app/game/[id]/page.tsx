@@ -10,6 +10,7 @@ import ActionPanel from '@/components/ActionPanel';
 import GameLog from '@/components/GameLog';
 import DevPanel from '@/components/DevPanel';
 import DiceDisplay from '@/components/DiceDisplay';
+import BankDisplay from '@/components/BankDisplay';
 
 export default function GamePage() {
   const params = useParams();
@@ -149,6 +150,9 @@ export default function GamePage() {
         <div className="flex-1 overflow-auto bg-blue-950 flex items-center justify-center p-4 relative">
           <div className="absolute top-4 left-4 z-10">
             <DiceDisplay diceRolled={gameState.dice_rolled} diceValues={gameState.dice_values} players={players} lastBurst={gameState.last_burst} />
+          </div>
+          <div className="absolute top-4 right-4 z-10">
+            <BankDisplay bank={gameState.bank} />
           </div>
           <Board
             gameState={gameState}
