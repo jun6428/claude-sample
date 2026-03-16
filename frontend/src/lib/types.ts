@@ -70,6 +70,7 @@ export interface GameState {
   bank: Record<ResourceType, number>;
   last_burst: Record<string, number>;
   pending_discards: Record<string, number>;
+  robber_victims: number[];
 }
 
 export interface WebSocketMessage {
@@ -90,6 +91,7 @@ export type GameAction =
   | { action: 'build_city'; vertex_id: string }
   | { action: 'trade_bank'; give: ResourceType; receive: ResourceType }
   | { action: 'discard_resources'; resources: Partial<Record<ResourceType, number>> }
+  | { action: 'steal_from'; target_player_idx: number }
   | { action: 'end_turn' }
   | { action: 'debug_add_resource'; resource: ResourceType };
 

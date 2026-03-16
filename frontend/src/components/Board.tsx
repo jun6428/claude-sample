@@ -118,13 +118,14 @@ export default function Board({ gameState, myPlayerIdx, sendAction, selectedActi
   const clickableHexes = useMemo(() => {
     if (!isMyTurn) return new Set<string>();
     if (phase === 'playing' && gameState.dice_rolled &&
-        gameState.dice_values[0] + gameState.dice_values[1] === 7) {
+        gameState.dice_values[0] + gameState.dice_values[1] === 7 &&
+        Object.keys(gameState.pending_discards).length === 0) {
       return new Set(
         Object.keys(board.hexes).filter((hid) => hid !== robber_hex)
       );
     }
     return new Set<string>();
-  }, [isMyTurn, phase, gameState.dice_rolled, gameState.dice_values, board, robber_hex]);
+  }, [isMyTurn, phase, gameState.dice_rolled, gameState.dice_values, gameState.pending_discards, board, robber_hex]);
 
   const handleVertexClick = (vid: string) => {
     if (!clickableVertices.has(vid)) return;

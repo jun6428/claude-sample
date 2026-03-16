@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { GameState, GameAction, ResourceType, BUILD_COSTS, RESOURCE_LABELS } from '@/lib/types';
+import { GameState, GameAction, ResourceType, BUILD_COSTS, RESOURCE_LABELS, PLAYER_COLOR_MAP } from '@/lib/types';
 import { useGameStore } from '@/store/gameStore';
 
 interface ActionPanelProps {
@@ -26,7 +26,7 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
   const isMyTurn = myPlayerIdx !== null && current_player_idx === myPlayerIdx;
   const myResources = resources[String(myPlayerIdx)] || {};
   const diceTotal = dice_values[0] + dice_values[1];
-  const needsRobberMove = dice_rolled && diceTotal === 7 && !gameState.robber_moved;
+  const needsRobberMove = dice_rolled && diceTotal === 7 && !gameState.robber_moved && Object.keys(gameState.pending_discards).length === 0;
 
   const canAfford = (type: 'road' | 'settlement' | 'city') => {
     const cost = BUILD_COSTS[type];
@@ -150,6 +150,16 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
             </button>
           )}
 
+          {/* Waiting for discards — exclusive block, hides all other actions */}
+          {dice_rolled && Object.keys(gameState.pending_discards).length > 0 ? (
+            <div className="bg-gray-700 rounded p-3">
+              <p className="text-gray-300 text-sm font-bold">他のプレイヤーの捨て牌を待っています...</p>
+              <p className="text-gray-500 text-xs mt-1">
+                {Object.keys(gameState.pending_discards).map(i => players[Number(i)]?.name).join('、')} が選択中
+              </p>
+            </div>
+          ) : (
+          <>
           {/* Robber move instruction */}
           {needsRobberMove && (
             <div className="bg-red-900 rounded p-2">
@@ -158,8 +168,35 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
             </div>
           )}
 
+          {/* Steal target selection */}
+          {gameState.robber_victims.length > 0 && (
+            <div className="bg-gray-800 rounded-lg p-3 space-y-2">
+              <p className="text-red-300 text-xs font-bold">盗む相手を選んでください</p>
+              <div className="flex flex-col gap-1.5">
+                {gameState.robber_victims.map((idx) => {
+                  const p = players[idx];
+                  if (!p) return null;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => sendAction({ action: 'steal_from', target_player_idx: idx })}
+                      className="flex items-center gap-2 px-3 py-2 rounded bg-gray-700 hover:bg-red-800 text-white text-sm transition-colors"
+                    >
+                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: PLAYER_COLOR_MAP[p.color] }} />
+                      <span>{p.name}</span>
+                      <span className="text-gray-400 text-xs ml-auto">
+                        {Object.values(resources[String(idx)] || {}).reduce((a: number, b) => a + (b as number), 0)} 枚
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Build actions */}
-          {dice_rolled && !needsRobberMove && (
+          {dice_rolled && !needsRobberMove && gameState.robber_victims.length === 0 && (
             <div>
               <p className="text-gray-400 text-xs font-bold uppercase tracking-wide mb-1.5">建設</p>
               <div className="grid grid-cols-3 gap-1.5">
@@ -202,7 +239,7 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
           )}
 
           {/* Bank trade */}
-          {dice_rolled && !needsRobberMove && (
+          {dice_rolled && !needsRobberMove && gameState.robber_victims.length === 0 && (
             <div>
               <button
                 onClick={() => setShowTrade(!showTrade)}
@@ -256,7 +293,7 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
           )}
 
           {/* End turn */}
-          {dice_rolled && !needsRobberMove && (
+          {dice_rolled && !needsRobberMove && gameState.robber_victims.length === 0 && (
             <button
               onClick={() => {
                 setSelectedAction(null);
@@ -266,6 +303,8 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
             >
               ターン終了
             </button>
+          )}
+          </>
           )}
         </>
       )}

@@ -84,6 +84,7 @@ class GameState:
     winner: Optional[int] = None
     last_burst: Dict[int, int] = field(default_factory=dict)  # player_idx -> cards lost
     pending_discards: Dict[int, int] = field(default_factory=dict)  # player_idx -> cards to discard
+    robber_victims: List[int] = field(default_factory=list)  # eligible victim player indices
     log: List[str] = field(default_factory=list)
     last_settlement_placed: Optional[str] = None
 
@@ -342,6 +343,7 @@ class GameState:
             "last_settlement_placed": self.last_settlement_placed,
             "last_burst": {str(k): v for k, v in self.last_burst.items()},
             "pending_discards": {str(k): v for k, v in self.pending_discards.items()},
+            "robber_victims": self.robber_victims,
         }
 
     @classmethod
@@ -407,6 +409,7 @@ class GameState:
             last_settlement_placed=data.get('last_settlement_placed'),
             last_burst={int(k): v for k, v in data.get('last_burst', {}).items()},
             pending_discards={int(k): v for k, v in data.get('pending_discards', {}).items()},
+            robber_victims=data.get('robber_victims', []),
         )
 
 

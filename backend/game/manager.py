@@ -107,6 +107,8 @@ class ConnectionManager:
             await self._handle_trade_bank(game_id, player_idx, websocket, state, data)
         elif action == "discard_resources":
             await self._handle_discard_resources(game_id, player_idx, websocket, state, data)
+        elif action == "steal_from":
+            await self._handle_steal_from(game_id, player_idx, websocket, state, data)
         elif action == "end_turn":
             await self._handle_end_turn(game_id, player_idx, websocket, state)
         elif action == "debug_add_resource":
@@ -385,7 +387,7 @@ class ConnectionManager:
         state.robber_moved = True
         state.add_log(f"{state.players[player_idx].name} moved the robber to {hex_id}.")
 
-        # Steal from a player adjacent to the robber hex
+        # Collect eligible victims (have buildings on this hex, not self)
         hex_obj = state.board.hexes[hex_id]
         victims = set()
         for vid in hex_obj.vertex_ids:
@@ -393,14 +395,47 @@ class ConnectionManager:
             if building and building["player_idx"] != player_idx:
                 victims.add(building["player_idx"])
 
-        if victims:
-            victim_idx = random.choice(list(victims))
-            available = [r for r in RESOURCE_TYPES if state.player_resources(victim_idx)[r] > 0]
+        if len(victims) == 1:
+            target_idx = next(iter(victims))
+            available = [r for r in RESOURCE_TYPES if state.player_resources(target_idx)[r] > 0]
             if available:
                 stolen = random.choice(available)
-                state.transfer_between_players(stolen, victim_idx, player_idx, 1)
-                state.add_log(f"{state.players[player_idx].name} stole 1 {stolen} from {state.players[victim_idx].name}.")
+                state.transfer_between_players(stolen, target_idx, player_idx, 1)
+                state.add_log(f"{state.players[player_idx].name} stole 1 resource from {state.players[target_idx].name}.")
+            else:
+                state.add_log(f"{state.players[target_idx].name} had nothing to steal.")
+        elif len(victims) > 1:
+            state.robber_victims = sorted(victims)
+            state.add_log(f"{state.players[player_idx].name} must choose who to steal from.")
 
+        await self.broadcast_state(game_id)
+
+    async def _handle_steal_from(self, game_id: str, player_idx: int, websocket: WebSocket,
+                                  state: GameState, data: dict):
+        if state.phase != "playing":
+            await self.send_error(websocket, "Not in playing phase")
+            return
+        if state.current_player_idx != player_idx:
+            await self.send_error(websocket, "Not your turn")
+            return
+        if not state.robber_victims:
+            await self.send_error(websocket, "No steal pending")
+            return
+
+        target_idx = data.get("target_player_idx")
+        if target_idx is None or target_idx not in state.robber_victims:
+            await self.send_error(websocket, "Invalid target")
+            return
+
+        available = [r for r in RESOURCE_TYPES if state.player_resources(target_idx)[r] > 0]
+        if available:
+            stolen = random.choice(available)
+            state.transfer_between_players(stolen, target_idx, player_idx, 1)
+            state.add_log(f"{state.players[player_idx].name} stole 1 resource from {state.players[target_idx].name}.")
+        else:
+            state.add_log(f"{state.players[target_idx].name} had nothing to steal.")
+
+        state.robber_victims = []
         await self.broadcast_state(game_id)
 
     async def _handle_build_road(self, game_id: str, player_idx: int, websocket: WebSocket,
@@ -591,9 +626,9 @@ class ConnectionManager:
         if not state.dice_rolled:
             await self.send_error(websocket, "Must roll dice before ending turn")
             return
-        if sum(state.dice_values) == 7:
-            # Check if robber was moved
-            pass  # Robber move is enforced elsewhere; allow end turn
+        if state.robber_victims:
+            await self.send_error(websocket, "Must steal from a player first")
+            return
 
         n = len(state.players)
         state.current_player_idx = (state.current_player_idx + 1) % n
@@ -602,6 +637,7 @@ class ConnectionManager:
         state.robber_moved = False
         state.last_burst = {}
         state.pending_discards = {}
+        state.robber_victims = []
         state.add_log(f"{state.players[state.current_player_idx].name}'s turn. Roll the dice!")
 
         await self.broadcast_state(game_id)
