@@ -69,6 +69,7 @@ export interface GameState {
   log: string[];
   bank: Record<ResourceType, number>;
   last_burst: Record<string, number>;
+  pending_discards: Record<string, number>;
 }
 
 export interface WebSocketMessage {
@@ -88,6 +89,7 @@ export type GameAction =
   | { action: 'build_settlement'; vertex_id: string }
   | { action: 'build_city'; vertex_id: string }
   | { action: 'trade_bank'; give: ResourceType; receive: ResourceType }
+  | { action: 'discard_resources'; resources: Partial<Record<ResourceType, number>> }
   | { action: 'end_turn' }
   | { action: 'debug_add_resource'; resource: ResourceType };
 

@@ -105,6 +105,8 @@ class ConnectionManager:
             await self._handle_build_city(game_id, player_idx, websocket, state, data)
         elif action == "trade_bank":
             await self._handle_trade_bank(game_id, player_idx, websocket, state, data)
+        elif action == "discard_resources":
+            await self._handle_discard_resources(game_id, player_idx, websocket, state, data)
         elif action == "end_turn":
             await self._handle_end_turn(game_id, player_idx, websocket, state)
         elif action == "debug_add_resource":
@@ -279,20 +281,18 @@ class ConnectionManager:
         state.add_log(f"{state.players[player_idx].name} rolled {d1}+{d2}={total}.")
 
         if total == 7:
-            # Record burst event, then auto-discard
+            # Record burst event and request discards
             state.last_burst = {}
+            state.pending_discards = {}
             for i, player in enumerate(state.players):
                 count = state.count_resources(i)
                 if count > 7:
                     to_discard = count // 2
                     state.last_burst[i] = to_discard
-                    discarded = 0
-                    for r in RESOURCE_TYPES:
-                        while state.player_resources(i)[r] > 0 and discarded < to_discard:
-                            state.transfer_to_bank(r, i, 1)
-                            discarded += 1
-                    state.add_log(f"{player.name} discarded {to_discard} resources.")
-            state.add_log(f"{state.players[player_idx].name} must move the robber.")
+                    state.pending_discards[i] = to_discard
+                    state.add_log(f"{player.name} must discard {to_discard} resources.")
+            if not state.pending_discards:
+                state.add_log(f"{state.players[player_idx].name} must move the robber.")
         else:
             # Distribute resources
             hexes = state.board.get_hexes_for_number(total)
@@ -315,6 +315,49 @@ class ConnectionManager:
 
         await self.broadcast_state(game_id)
 
+    async def _handle_discard_resources(self, game_id: str, player_idx: int, websocket: WebSocket,
+                                         state: GameState, data: dict):
+        if state.phase != "playing":
+            await self.send_error(websocket, "Not in playing phase")
+            return
+        if player_idx not in state.pending_discards:
+            await self.send_error(websocket, "You don't need to discard")
+            return
+
+        required = state.pending_discards[player_idx]
+        resources: dict = data.get("resources", {})
+
+        # Validate total count
+        total = sum(resources.values())
+        if total != required:
+            await self.send_error(websocket, f"Must discard exactly {required} resources (got {total})")
+            return
+
+        # Validate player has all specified resources
+        player_res = state.player_resources(player_idx)
+        for r, amount in resources.items():
+            if r not in RESOURCE_TYPES:
+                await self.send_error(websocket, f"Invalid resource: {r}")
+                return
+            if amount < 0:
+                await self.send_error(websocket, "Amount must be non-negative")
+                return
+            if player_res.get(r, 0) < amount:
+                await self.send_error(websocket, f"Not enough {r}")
+                return
+
+        # Execute discard
+        for r, amount in resources.items():
+            state.transfer_to_bank(r, player_idx, amount)
+        del state.pending_discards[player_idx]
+        state.add_log(f"{state.players[player_idx].name} discarded {required} resources.")
+
+        # If all discards done, prompt robber move
+        if not state.pending_discards:
+            state.add_log(f"{state.players[state.current_player_idx].name} must move the robber.")
+
+        await self.broadcast_state(game_id)
+
     async def _handle_move_robber(self, game_id: str, player_idx: int, websocket: WebSocket,
                                    state: GameState, data: dict):
         if state.phase != "playing":
@@ -325,6 +368,9 @@ class ConnectionManager:
             return
         if not state.dice_rolled or sum(state.dice_values) != 7:
             await self.send_error(websocket, "Can only move robber when 7 is rolled")
+            return
+        if state.pending_discards:
+            await self.send_error(websocket, "Waiting for players to discard")
             return
 
         hex_id = data.get("hex_id")
@@ -555,6 +601,7 @@ class ConnectionManager:
         state.dice_values = (0, 0)
         state.robber_moved = False
         state.last_burst = {}
+        state.pending_discards = {}
         state.add_log(f"{state.players[state.current_player_idx].name}'s turn. Roll the dice!")
 
         await self.broadcast_state(game_id)

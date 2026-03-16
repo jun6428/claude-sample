@@ -83,6 +83,7 @@ class GameState:
     longest_road_length: int = 0
     winner: Optional[int] = None
     last_burst: Dict[int, int] = field(default_factory=dict)  # player_idx -> cards lost
+    pending_discards: Dict[int, int] = field(default_factory=dict)  # player_idx -> cards to discard
     log: List[str] = field(default_factory=list)
     last_settlement_placed: Optional[str] = None
 
@@ -340,6 +341,7 @@ class GameState:
             "log": self.log,
             "last_settlement_placed": self.last_settlement_placed,
             "last_burst": {str(k): v for k, v in self.last_burst.items()},
+            "pending_discards": {str(k): v for k, v in self.pending_discards.items()},
         }
 
     @classmethod
@@ -404,6 +406,7 @@ class GameState:
             log=data.get('log', []),
             last_settlement_placed=data.get('last_settlement_placed'),
             last_burst={int(k): v for k, v in data.get('last_burst', {}).items()},
+            pending_discards={int(k): v for k, v in data.get('pending_discards', {}).items()},
         )
 
 
