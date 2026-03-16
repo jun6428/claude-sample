@@ -160,61 +160,40 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
 
           {/* Build actions */}
           {dice_rolled && !needsRobberMove && (
-            <div className="space-y-2">
-              <p className="text-gray-400 text-xs font-bold uppercase tracking-wide">建設</p>
-
-              {/* Road */}
-              <button
-                onClick={() => setSelectedAction(selectedAction === 'build_road' ? null : 'build_road')}
-                disabled={!canAfford('road')}
-                className={`w-full text-left text-sm py-2 px-3 rounded transition-colors ${
-                  selectedAction === 'build_road'
-                    ? 'bg-yellow-500 text-gray-900 font-bold'
-                    : canAfford('road')
-                    ? 'bg-gray-700 hover:bg-gray-600 text-white'
-                    : 'bg-gray-900 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                🛣️ 道を建設
-                <span className="block text-xs opacity-70">{costLabel('road')}</span>
-              </button>
-
-              {/* Settlement */}
-              <button
-                onClick={() => setSelectedAction(selectedAction === 'build_settlement' ? null : 'build_settlement')}
-                disabled={!canAfford('settlement')}
-                className={`w-full text-left text-sm py-2 px-3 rounded transition-colors ${
-                  selectedAction === 'build_settlement'
-                    ? 'bg-yellow-500 text-gray-900 font-bold'
-                    : canAfford('settlement')
-                    ? 'bg-gray-700 hover:bg-gray-600 text-white'
-                    : 'bg-gray-900 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                🏠 開拓地を建設
-                <span className="block text-xs opacity-70">{costLabel('settlement')}</span>
-              </button>
-
-              {/* City */}
-              <button
-                onClick={() => setSelectedAction(selectedAction === 'build_city' ? null : 'build_city')}
-                disabled={!canAfford('city')}
-                className={`w-full text-left text-sm py-2 px-3 rounded transition-colors ${
-                  selectedAction === 'build_city'
-                    ? 'bg-yellow-500 text-gray-900 font-bold'
-                    : canAfford('city')
-                    ? 'bg-gray-700 hover:bg-gray-600 text-white'
-                    : 'bg-gray-900 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                🏰 都市に昇格
-                <span className="block text-xs opacity-70">{costLabel('city')}</span>
-              </button>
-
+            <div>
+              <p className="text-gray-400 text-xs font-bold uppercase tracking-wide mb-1.5">建設</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {([
+                  { key: 'build_road',       emoji: '🛣️', cost: '🌲🧱' },
+                  { key: 'build_settlement', emoji: '🏠', cost: '🌲🧱🐑🌾' },
+                  { key: 'build_city',       emoji: '🏰', cost: '🌾🌾⛰️⛰️⛰️' },
+                ] as const).map(({ key, emoji, cost }) => {
+                  const type = key.replace('build_', '') as 'road' | 'settlement' | 'city';
+                  const active = selectedAction === key;
+                  const affordable = canAfford(type);
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setSelectedAction(active ? null : key)}
+                      disabled={!affordable}
+                      className={`flex flex-col items-center gap-1 py-2 px-1 rounded transition-colors ${
+                        active
+                          ? 'bg-yellow-500 text-gray-900 font-bold'
+                          : affordable
+                          ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                          : 'bg-gray-900 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      <span className="text-base leading-none">{emoji}</span>
+                      <span className="text-xs leading-none opacity-70">{cost}</span>
+                    </button>
+                  );
+                })}
+              </div>
               {selectedAction && (
                 <button
                   onClick={() => setSelectedAction(null)}
-                  className="w-full text-xs text-gray-400 hover:text-gray-300 py-1"
+                  className="w-full text-xs text-gray-400 hover:text-gray-300 py-1 mt-1"
                 >
                   キャンセル
                 </button>
