@@ -147,6 +147,7 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
             <button onClick={clearErrors} className="text-gray-500 text-xs mt-1">✕ 消す</button>
           </div>
         )}
+        {devPanel}
       </div>
     );
   }
