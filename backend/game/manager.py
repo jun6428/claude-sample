@@ -115,7 +115,7 @@ class ConnectionManager:
             if state.bank_stock(resource) == 0:
                 await self.send_error(websocket, f"Bank has no {resource} left.")
                 return
-            state.resources[player_idx][resource] = state.resources[player_idx].get(resource, 0) + 1
+            state.transfer_from_bank(resource, player_idx, 1)
             state.add_log(f"[DEBUG] {state.players[player_idx].name} +1 {resource}.")
             await self.broadcast_state(game_id)
         else:
@@ -174,7 +174,11 @@ class ConnectionManager:
             await self.send_error(websocket, "Invalid settlement location")
             return
 
-        state.buildings[vertex_id] = {"type": "settlement", "player_idx": player_idx}
+        piece = state.supply_piece(player_idx, "settlement")
+        if not piece:
+            await self.send_error(websocket, "No settlement pieces left")
+            return
+        piece.location = vertex_id
         state.last_settlement_placed = vertex_id
         state.setup_step = "road"
         state.add_log(f"{state.players[player_idx].name} placed a settlement.")
@@ -202,7 +206,11 @@ class ConnectionManager:
             await self.send_error(websocket, "Invalid road location")
             return
 
-        state.roads[edge_id] = player_idx
+        piece = state.supply_piece(player_idx, "road")
+        if not piece:
+            await self.send_error(websocket, "No road pieces left")
+            return
+        piece.location = edge_id
         state.setup_placements[player_idx] += 1
         state.setup_step = "settlement"
 
@@ -276,11 +284,10 @@ class ConnectionManager:
                 count = state.count_resources(i)
                 if count > 7:
                     to_discard = count // 2
-                    res = state.resources[i]
                     discarded = 0
                     for r in RESOURCE_TYPES:
-                        while res[r] > 0 and discarded < to_discard:
-                            res[r] -= 1
+                        while state.player_resources(i)[r] > 0 and discarded < to_discard:
+                            state.transfer_to_bank(r, i, 1)
                             discarded += 1
                     state.add_log(f"{player.name} discarded {to_discard} resources.")
             state.add_log(f"{state.players[player_idx].name} must move the robber.")
@@ -296,7 +303,7 @@ class ConnectionManager:
                 if resource not in pending:
                     pending[resource] = {}
                 for vid in hex_obj.vertex_ids:
-                    building = state.buildings.get(vid)
+                    building = state.building_at(vid)
                     if building:
                         pidx = building["player_idx"]
                         amount = 2 if building["type"] == "city" else 1
@@ -334,18 +341,16 @@ class ConnectionManager:
         hex_obj = state.board.hexes[hex_id]
         victims = set()
         for vid in hex_obj.vertex_ids:
-            building = state.buildings.get(vid)
+            building = state.building_at(vid)
             if building and building["player_idx"] != player_idx:
                 victims.add(building["player_idx"])
 
         if victims:
             victim_idx = random.choice(list(victims))
-            victim_res = state.resources[victim_idx]
-            available = [r for r in RESOURCE_TYPES if victim_res.get(r, 0) > 0]
+            available = [r for r in RESOURCE_TYPES if state.player_resources(victim_idx)[r] > 0]
             if available:
                 stolen = random.choice(available)
-                victim_res[stolen] -= 1
-                state.resources[player_idx][stolen] = state.resources[player_idx].get(stolen, 0) + 1
+                state.transfer_between_players(stolen, victim_idx, player_idx, 1)
                 state.add_log(f"{state.players[player_idx].name} stole 1 {stolen} from {state.players[victim_idx].name}.")
 
         await self.broadcast_state(game_id)
@@ -379,8 +384,12 @@ class ConnectionManager:
             await self.send_error(websocket, "Invalid road location")
             return
 
+        road_piece = state.supply_piece(player_idx, "road")
+        if not road_piece:
+            await self.send_error(websocket, "No road pieces left")
+            return
         state.pay_cost(player_idx, cost)
-        state.roads[edge_id] = player_idx
+        road_piece.location = edge_id
         state.update_longest_road()
         state.recalculate_vp()
         state.add_log(f"{state.players[player_idx].name} built a road.")
@@ -419,8 +428,12 @@ class ConnectionManager:
             await self.send_error(websocket, "Invalid settlement location")
             return
 
+        settlement_piece = state.supply_piece(player_idx, "settlement")
+        if not settlement_piece:
+            await self.send_error(websocket, "No settlement pieces left")
+            return
         state.pay_cost(player_idx, cost)
-        state.buildings[vertex_id] = {"type": "settlement", "player_idx": player_idx}
+        settlement_piece.location = vertex_id
         state.recalculate_vp()
         state.add_log(f"{state.players[player_idx].name} built a settlement.")
 
@@ -449,7 +462,7 @@ class ConnectionManager:
             await self.send_error(websocket, "vertex_id required")
             return
 
-        building = state.buildings.get(vertex_id)
+        building = state.building_at(vertex_id)
         if not building or building["type"] != "settlement" or building["player_idx"] != player_idx:
             await self.send_error(websocket, "Must upgrade your own settlement")
             return
@@ -459,8 +472,17 @@ class ConnectionManager:
             await self.send_error(websocket, "Cannot afford city (need 2 wheat + 3 ore)")
             return
 
+        # Return settlement piece to supply, place city piece
+        for p in state.settlement_pieces:
+            if p.location == vertex_id:
+                p.location = None
+                break
+        city_piece = state.supply_piece(player_idx, "city")
+        if not city_piece:
+            await self.send_error(websocket, "No city pieces left")
+            return
         state.pay_cost(player_idx, cost)
-        state.buildings[vertex_id] = {"type": "city", "player_idx": player_idx}
+        city_piece.location = vertex_id
         state.recalculate_vp()
         state.add_log(f"{state.players[player_idx].name} upgraded to a city.")
 
@@ -496,7 +518,7 @@ class ConnectionManager:
 
         # Standard 4:1 bank trade
         trade_ratio = 4
-        if state.resources[player_idx].get(give_res, 0) < trade_ratio:
+        if state.player_resources(player_idx).get(give_res, 0) < trade_ratio:
             await self.send_error(websocket, f"Need {trade_ratio} {give_res} for bank trade")
             return
 
@@ -504,7 +526,7 @@ class ConnectionManager:
         if not logs or "insufficient" in logs[0]:
             await self.send_error(websocket, f"Bank has no {receive_res} available")
             return
-        state.resources[player_idx][give_res] -= trade_ratio
+        state.transfer_to_bank(give_res, player_idx, trade_ratio)
         for log in logs:
             state.add_log(log)
         state.add_log(f"{state.players[player_idx].name} traded {trade_ratio} {give_res} for 1 {receive_res} with bank.")

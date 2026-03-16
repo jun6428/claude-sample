@@ -67,6 +67,7 @@ export interface GameState {
   longest_road_length: number;
   winner: number | null;
   log: string[];
+  bank: Record<ResourceType, number>;
 }
 
 export interface WebSocketMessage {
