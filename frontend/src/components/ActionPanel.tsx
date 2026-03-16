@@ -28,6 +28,27 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
   const diceTotal = dice_values[0] + dice_values[1];
   const needsRobberMove = dice_rolled && diceTotal === 7 && !gameState.robber_moved && Object.keys(gameState.pending_discards).length === 0;
 
+  // 港のレートを計算
+  const myTradeRatios = React.useMemo(() => {
+    const ratios: Record<string, number> = { wood: 4, brick: 4, sheep: 4, wheat: 4, ore: 4 };
+    if (myPlayerIdx === null) return ratios;
+    const myVertices = new Set(
+      Object.entries(gameState.buildings)
+        .filter(([, b]) => b.player_idx === myPlayerIdx)
+        .map(([vid]) => vid)
+    );
+    for (const port of (gameState.board.ports || [])) {
+      if (port.vertex_ids.some(vid => myVertices.has(vid))) {
+        if (port.port_type === '3:1') {
+          for (const r of RESOURCE_TYPES) ratios[r] = Math.min(ratios[r], 3);
+        } else {
+          ratios[port.port_type] = Math.min(ratios[port.port_type] ?? 4, 2);
+        }
+      }
+    }
+    return ratios;
+  }, [myPlayerIdx, gameState.buildings, gameState.board.ports]);
+
   const canAfford = (type: 'road' | 'settlement' | 'city') => {
     const cost = BUILD_COSTS[type];
     return Object.entries(cost).every(([res, amount]) => (myResources[res as ResourceType] || 0) >= amount!);
@@ -245,7 +266,7 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
                 onClick={() => setShowTrade(!showTrade)}
                 className="w-full text-left text-sm py-2 px-3 rounded bg-gray-700 hover:bg-gray-600 text-white transition-colors"
               >
-                🏦 銀行と交換 (4:1)
+                🏦 銀行と交換
               </button>
               {showTrade && (
                 <div className="mt-2 bg-gray-900 rounded p-3 space-y-2">
@@ -253,12 +274,19 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
                     <label className="text-gray-300 text-xs w-10">渡す:</label>
                     <select
                       value={tradeGive}
-                      onChange={(e) => setTradeGive(e.target.value as ResourceType)}
+                      onChange={(e) => {
+                        const newGive = e.target.value as ResourceType;
+                        setTradeGive(newGive);
+                        if (tradeReceive === newGive) {
+                          const fallback = RESOURCE_TYPES.find((r) => r !== newGive);
+                          if (fallback) setTradeReceive(fallback);
+                        }
+                      }}
                       className="flex-1 bg-gray-700 text-white text-xs rounded px-2 py-1"
                     >
                       {RESOURCE_TYPES.map((r) => (
                         <option key={r} value={r}>
-                          {RESOURCE_LABELS[r]} ({myResources[r] || 0})
+                          {RESOURCE_LABELS[r]} ({myResources[r] || 0}) {myTradeRatios[r] < 4 ? `${myTradeRatios[r]}:1` : ''}
                         </option>
                       ))}
                     </select>
@@ -282,10 +310,10 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
                       sendAction({ action: 'trade_bank', give: tradeGive, receive: tradeReceive });
                       setShowTrade(false);
                     }}
-                    disabled={(myResources[tradeGive] || 0) < 4}
+                    disabled={(myResources[tradeGive] || 0) < (myTradeRatios[tradeGive] ?? 4)}
                     className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white text-xs font-bold py-1 rounded transition-colors"
                   >
-                    交換実行 ({RESOURCE_LABELS[tradeGive]}×4 → {RESOURCE_LABELS[tradeReceive]}×1)
+                    交換実行 ({RESOURCE_LABELS[tradeGive]}×{myTradeRatios[tradeGive] ?? 4} → {RESOURCE_LABELS[tradeReceive]}×1)
                   </button>
                 </div>
               )}
