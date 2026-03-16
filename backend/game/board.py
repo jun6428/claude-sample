@@ -28,6 +28,22 @@ RESOURCE_DISTRIBUTION = (
 
 NUMBER_TOKENS = [2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12]
 
+PORT_TYPES = ["3:1", "3:1", "3:1", "3:1", "wood", "brick", "sheep", "wheat", "ore"]
+
+# 公式レイアウトに準拠した9港の位置 (q, r, edge_index)
+# edge_index は隣接hex方向: 0→(+1,-1) 1→(+1,0) 2→(0,+1) 3→(-1,+1) 4→(-1,0) 5→(0,-1)
+PORT_POSITIONS = [
+    ( 0, -2, 5),  # 真上       (中央: 海辺の真ん中)
+    ( 1, -2, 0),  # 右上       (端: gap(2,-2)側)
+    ( 2, -1, 0),  # 右・上     (端: gap(2,-2)側)  FIX: 1→0
+    ( 2,  0, 1),  # 右・中     (中央: 海辺の真ん中) FIX: 2→1
+    ( 1,  1, 2),  # 右下       (端: gap(0,2)側)
+    (-1,  2, 2),  # 下・右     (端: gap(0,2)側)   FIX: 3→2
+    (-2,  2, 3),  # 下・左中   (中央: 海辺の真ん中)
+    (-2,  1, 4),  # 左下       (端: gap(-2,0)側)  FIX: 3→4
+    (-1, -1, 4),  # 左上       (端: gap(-2,0)側)  FIX: 5→4
+]
+
 # Axial directions for neighbors
 HEX_DIRECTIONS = [
     (1, 0), (1, -1), (0, -1),
@@ -102,6 +118,7 @@ class Board:
         self.hexes: Dict[str, Hex] = {}
         self.vertices: Dict[str, dict] = {}  # vertex_id -> {x, y, adjacent_hexes, adjacent_vertices, adjacent_edges}
         self.edges: Dict[str, dict] = {}     # edge_id -> {v1, v2, adjacent_hexes}
+        self.ports: List[dict] = []          # [{port_type, vertex_ids, edge_id}]
         self._build()
 
     def _build(self):
@@ -197,6 +214,30 @@ class Board:
                 "adjacent_hexes": edge_to_hexes.get(eid, []),
             }
 
+        self._assign_ports()
+
+    def _assign_ports(self):
+        port_types = PORT_TYPES.copy()
+        random.shuffle(port_types)
+
+        self.ports = []
+        for (q, r, edge_idx), port_type in zip(PORT_POSITIONS, port_types):
+            hex_id = f"{q},{r}"
+            if hex_id not in self.hexes:
+                continue
+            h = self.hexes[hex_id]
+            if edge_idx >= len(h.edge_ids):
+                continue
+            eid = h.edge_ids[(edge_idx + 5) % 6]
+            if eid not in self.edges:
+                continue
+            e = self.edges[eid]
+            self.ports.append({
+                "port_type": port_type,
+                "vertex_ids": [e["v1"], e["v2"]],
+                "edge_id": eid,
+            })
+
     def get_adjacent_hexes(self, hex_id: str) -> List[str]:
         """Return list of adjacent hex IDs."""
         if hex_id not in self.hexes:
@@ -230,6 +271,7 @@ class Board:
             "hexes": {hid: h.to_dict() for hid, h in self.hexes.items()},
             "vertices": self.vertices,
             "edges": self.edges,
+            "ports": self.ports,
         }
 
     @classmethod
@@ -243,6 +285,7 @@ class Board:
             board.hexes[hid] = hex_obj
         board.vertices = data['vertices']
         board.edges = data['edges']
+        board.ports = data.get('ports', [])
         return board
 
     def find_desert(self) -> Optional[str]:

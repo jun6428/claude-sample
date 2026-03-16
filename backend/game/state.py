@@ -179,6 +179,20 @@ class GameState:
 
     # --- 既存メソッド（新APIに移行） ---
 
+    def get_player_trade_ratios(self, player_idx: int) -> Dict[str, int]:
+        """資源ごとの最良交易レートを返す（港なし=4、3:1港=3、2:1港=2）。"""
+        ratios = {r: 4 for r in RESOURCE_TYPES}
+        player_vertices = {p.location for p in self.settlement_pieces if p.location and p.player_idx == player_idx}
+        player_vertices |= {p.location for p in self.city_pieces if p.location and p.player_idx == player_idx}
+        for port in self.board.ports:
+            if any(vid in player_vertices for vid in port["vertex_ids"]):
+                if port["port_type"] == "3:1":
+                    for r in RESOURCE_TYPES:
+                        ratios[r] = min(ratios[r], 3)
+                elif port["port_type"] in RESOURCE_TYPES:
+                    ratios[port["port_type"]] = min(ratios[port["port_type"]], 2)
+        return ratios
+
     def get_resources(self, player_idx: int) -> Dict[str, int]:
         return self.player_resources(player_idx)
 

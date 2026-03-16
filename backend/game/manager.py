@@ -599,10 +599,9 @@ class ConnectionManager:
             await self.send_error(websocket, "Cannot trade same resource")
             return
 
-        # Standard 4:1 bank trade
-        trade_ratio = 4
+        trade_ratio = state.get_player_trade_ratios(player_idx)[give_res]
         if state.player_resources(player_idx).get(give_res, 0) < trade_ratio:
-            await self.send_error(websocket, f"Need {trade_ratio} {give_res} for bank trade")
+            await self.send_error(websocket, f"Need {trade_ratio} {give_res} to trade")
             return
 
         logs = state.distribute_from_bank({receive_res: {player_idx: 1}})
@@ -612,7 +611,7 @@ class ConnectionManager:
         state.transfer_to_bank(give_res, player_idx, trade_ratio)
         for log in logs:
             state.add_log(log)
-        state.add_log(f"{state.players[player_idx].name} traded {trade_ratio} {give_res} for 1 {receive_res} with bank.")
+        state.add_log(f"{state.players[player_idx].name} traded {trade_ratio} {give_res} → 1 {receive_res} with bank.")
 
         await self.broadcast_state(game_id)
 
