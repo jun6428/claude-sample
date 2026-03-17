@@ -11,6 +11,36 @@ interface PlayerPanelProps {
 
 const RESOURCE_TYPES: ResourceType[] = ['wood', 'brick', 'sheep', 'wheat', 'ore'];
 
+const CARD_DISPLAY: Record<string, { emoji: string; label: string; border: string }> = {
+  honor:          { emoji: '⭐', label: '得点', border: 'border-yellow-600' },
+  road_building:  { emoji: '🛤️', label: '街道', border: 'border-orange-500' },
+  monopoly:       { emoji: '💰', label: '独占', border: 'border-purple-500' },
+  year_of_plenty: { emoji: '🌿', label: '収穫', border: 'border-green-500' },
+};
+
+function StackedCard({ type, count }: { type: string; count: number }) {
+  const d = CARD_DISPLAY[type] ?? { emoji: '?', label: type, border: 'border-gray-500' };
+  return (
+    <div className="relative">
+      <div className={`flex flex-col items-center justify-center w-10 h-14 rounded border ${d.border} bg-gray-800 text-center`}>
+        <span className="text-base leading-none">{d.emoji}</span>
+        <span className="text-yellow-300 text-xs leading-tight mt-0.5">{d.label}</span>
+      </div>
+      {count > 1 && (
+        <span className="absolute -top-1 -right-1 bg-gray-600 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center leading-none">
+          {count}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function groupCards(cards: { type: string; face_up: boolean }[]): { type: string; count: number }[] {
+  const counts: Record<string, number> = {};
+  for (const c of cards) counts[c.type] = (counts[c.type] ?? 0) + 1;
+  return Object.entries(counts).map(([type, count]) => ({ type, count }));
+}
+
 
 export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: PlayerPanelProps) {
   const { players, current_player_idx, resources, phase, longest_road_player } = gameState;
@@ -82,18 +112,26 @@ export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: Play
                   })}
                 </div>
                 {(() => {
-                  const myGraceCards = gameState.grace_cards_by_player?.[String(idx)] ?? [];
-                  if (myGraceCards.length === 0) return null;
+                  const allCards = gameState.grace_cards_by_player?.[String(idx)] ?? [];
+                  const inHand = allCards.filter(c => !c.face_up);
+                  const used = allCards.filter(c => c.face_up);
+                  if (allCards.length === 0) return null;
                   return (
                     <div className="mt-2">
-                      <p className="text-gray-500 text-xs mb-1">発展カード</p>
-                      <div className="flex flex-wrap gap-1">
-                        {myGraceCards.map((card, i) => (
-                          <div key={i} className="flex flex-col items-center justify-center w-10 h-14 rounded border border-yellow-600 bg-gray-800 text-center">
-                            <span className="text-base leading-none">⭐</span>
-                            <span className="text-yellow-300 text-xs leading-tight mt-0.5">得点</span>
+
+                      <div className="flex justify-between gap-2">
+                        <div className="flex flex-wrap gap-2">
+                          {groupCards(inHand).map(({ type, count }) => (
+                            <StackedCard key={type} type={type} count={count} />
+                          ))}
+                        </div>
+                        {used.length > 0 && (
+                          <div className="flex flex-wrap gap-2 justify-end opacity-40">
+                            {groupCards(used).map(({ type, count }) => (
+                              <StackedCard key={`used-${type}`} type={type} count={count} />
+                            ))}
                           </div>
-                        ))}
+                        )}
                       </div>
                     </div>
                   );
@@ -156,20 +194,42 @@ export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: Play
                   </div>
                   {theirGraceCount > 0 && (
                     <div className="mt-2">
-                      <p className="text-gray-500 text-xs mb-1">発展カード</p>
-                      <div className="flex flex-wrap gap-1">
-                        {(gameState.grace_cards_by_player?.[String(idx)] ?? []).map((card, i) => (
-                          card.face_up ? (
-                            <div key={i} className="flex flex-col items-center justify-center w-10 h-14 rounded border border-yellow-600 bg-gray-800 text-center">
-                              <span className="text-base leading-none">⭐</span>
-                              <span className="text-yellow-300 text-xs leading-tight mt-0.5">得点</span>
+
+                      <div className="flex flex-wrap gap-2">
+                        {phase === 'ended' ? (
+                          groupCards(gameState.grace_cards_by_player?.[String(idx)] ?? []).map(({ type, count }) => (
+                            <StackedCard key={type} type={type} count={count} />
+                          ))
+                        ) : (() => {
+                          const cards = gameState.grace_cards_by_player?.[String(idx)] ?? [];
+                          const revealed = cards.filter(c => c.face_up);
+                          const hidden = cards.filter(c => !c.face_up);
+                          return (
+                            <div className="flex justify-between gap-2 w-full">
+                              <div className="flex flex-wrap gap-2">
+                                {hidden.length > 0 && (
+                                  <div className="relative">
+                                    <div className="flex flex-col items-center justify-center w-10 h-14 rounded border border-gray-600 bg-gray-900 text-center">
+                                      <span className="text-gray-500 text-lg leading-none">🂠</span>
+                                    </div>
+                                    {hidden.length > 1 && (
+                                      <span className="absolute -top-1 -right-1 bg-gray-600 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center leading-none">
+                                        {hidden.length}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              {revealed.length > 0 && (
+                                <div className="flex flex-wrap gap-2 justify-end opacity-40">
+                                  {groupCards(revealed).map(({ type, count }) => (
+                                    <StackedCard key={`revealed-${type}`} type={type} count={count} />
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                          ) : (
-                            <div key={i} className="flex flex-col items-center justify-center w-10 h-14 rounded border border-gray-600 bg-gray-900 text-center">
-                              <span className="text-gray-500 text-lg leading-none">🂠</span>
-                            </div>
-                          )
-                        ))}
+                          );
+                        })()}
                       </div>
                     </div>
                   )}

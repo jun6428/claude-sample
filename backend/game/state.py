@@ -22,6 +22,9 @@ RESOURCE_CARD_LIMIT = 19
 
 GRACE_CARD_COUNTS = {
     "honor": 5,
+    "road_building": 2,
+    "monopoly": 2,
+    "year_of_plenty": 2,
 }
 GRACE_CARD_COST = {"wheat": 1, "sheep": 1, "ore": 1}
 
@@ -89,6 +92,8 @@ class GameState:
     resource_cards: List[ResourceCard] = field(default_factory=list)
     grace_cards: List[GraceCard] = field(default_factory=list)
     turn_number: int = 0
+    pending_road_building: int = 0
+    grace_card_used_this_turn: bool = False
     road_pieces: List[RoadPiece] = field(default_factory=list)
     settlement_pieces: List[SettlementPiece] = field(default_factory=list)
     city_pieces: List[CityPiece] = field(default_factory=list)
@@ -244,13 +249,21 @@ class GameState:
         return [c for c in self.grace_cards if c.holder == f"player_{player_idx}"]
 
     def end_game(self, winner: int):
-        """ゲーム終了処理：勝者をセットし全発展カードを表にする。"""
         self.winner = winner
         self.phase = "ended"
-        for c in self.grace_cards:
-            if c.holder != "deck":
-                c.face_up = True
         self.add_log(f"{self.players[winner].name} wins!")
+
+    def use_grace_card(self, player_idx: int, card_type: str) -> Optional[GraceCard]:
+        """手札から指定タイプのカードを1枚使用（face_up = True）。"""
+        card = next(
+            (c for c in self.grace_cards
+             if c.holder == f"player_{player_idx}" and c.type == card_type and not c.face_up),
+            None
+        )
+        if card:
+            card.face_up = True
+            self.grace_card_used_this_turn = True
+        return card
 
     def draw_grace_card(self, player_idx: int) -> Optional[GraceCard]:
         deck = [c for c in self.grace_cards if c.holder == "deck"]
@@ -405,6 +418,8 @@ class GameState:
                 for i in range(len(self.players))
             },
             "turn_number": self.turn_number,
+            "pending_road_building": self.pending_road_building,
+            "grace_card_used_this_turn": self.grace_card_used_this_turn,
         }
 
     @classmethod
@@ -481,6 +496,8 @@ class GameState:
             resource_cards=resource_cards,
             grace_cards=grace_cards,
             turn_number=data.get('turn_number', 0),
+            pending_road_building=data.get('pending_road_building', 0),
+            grace_card_used_this_turn=data.get('grace_card_used_this_turn', False),
             road_pieces=road_pieces,
             settlement_pieces=settlement_pieces,
             city_pieces=city_pieces,

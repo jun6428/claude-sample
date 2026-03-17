@@ -80,6 +80,8 @@ export interface GameState {
   grace_deck_count: number;
   grace_cards_by_player: Record<string, { type: string; face_up: boolean; purchased_turn: number }[]>;
   turn_number: number;
+  pending_road_building: number;
+  grace_card_used_this_turn: boolean;
 }
 
 export interface WebSocketMessage {
@@ -125,6 +127,9 @@ export type GameAction =
   | { action: 'steal_from'; target_player_idx: number }
   | { action: 'end_turn' }
   | { action: 'buy_grace_card' }
+  | { action: 'use_road_building' }
+  | { action: 'use_monopoly'; resource: ResourceType }
+  | { action: 'use_year_of_plenty'; resource1: ResourceType; resource2: ResourceType }
   | { action: 'debug_add_resource'; resource: ResourceType };
 
 export const RESOURCE_COLORS: Record<string, string> = {

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { GameState, GameAction, ResourceType, BUILD_COSTS, RESOURCE_LABELS, PLAYER_COLOR_MAP, HONOR_LABEL, calculateHonor } from '@/lib/types';
+import { GameState, GameAction, ResourceType, BUILD_COSTS, RESOURCE_LABELS, RESOURCE_EMOJI, PLAYER_COLOR_MAP, HONOR_LABEL, calculateHonor } from '@/lib/types';
 import { useGameStore } from '@/store/gameStore';
 
 interface ActionPanelProps {
@@ -11,6 +11,69 @@ interface ActionPanelProps {
 }
 
 const RESOURCE_TYPES: ResourceType[] = ['wood', 'brick', 'sheep', 'wheat', 'ore'];
+
+function YearOfPlentySelector({ disabled, bank, onSelect }: { disabled: boolean; bank: Record<string, number>; onSelect: (r1: ResourceType, r2: ResourceType) => void }) {
+  const [open, setOpen] = React.useState(false);
+  const [first, setFirst] = React.useState<ResourceType | null>(null);
+  const resources: ResourceType[] = ['wood', 'brick', 'sheep', 'wheat', 'ore'];
+  const canUse = resources.some(r => (bank[r] ?? 0) > 0);
+  const availableFirst = resources.filter(r => (bank[r] ?? 0) > 0);
+  const availableSecond = first
+    ? resources.filter(r => (bank[r] ?? 0) >= (r === first ? 2 : 1))
+    : availableFirst;
+  return (
+    <div>
+      <button
+        onClick={() => { setOpen(o => !o); setFirst(null); }}
+        disabled={disabled || !canUse}
+        className="w-full text-left text-xs py-1.5 px-2 rounded bg-gray-700 hover:bg-gray-600 disabled:bg-gray-900 disabled:text-gray-500 text-white transition-colors"
+      >
+        🌿 年の豊作{!canUse && <span className="text-gray-600 ml-1">（銀行在庫なし）</span>}
+      </button>
+      {open && !disabled && canUse && (
+        <div className="mt-1 bg-gray-900 rounded p-2 space-y-1">
+          <p className="text-gray-400 text-xs">{first ? `1枚目: ${RESOURCE_EMOJI[first]} → 2枚目を選択` : '1枚目を選択'}</p>
+          <div className="flex gap-1 flex-wrap">
+            {(first ? availableSecond : availableFirst).map(r => (
+              <button key={r} onClick={() => {
+                if (!first) { setFirst(r); }
+                else { onSelect(first, r); setOpen(false); setFirst(null); }
+              }}
+                className="text-xs bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded">
+                {RESOURCE_EMOJI[r]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MonopolySelector({ disabled, onSelect }: { disabled: boolean; onSelect: (r: ResourceType) => void }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(o => !o)}
+        disabled={disabled}
+        className="w-full text-left text-xs py-1.5 px-2 rounded bg-gray-700 hover:bg-gray-600 disabled:bg-gray-900 disabled:text-gray-500 text-white transition-colors"
+      >
+        💰 独占
+      </button>
+      {open && !disabled && (
+        <div className="flex gap-1 mt-1 flex-wrap">
+          {(['wood', 'brick', 'sheep', 'wheat', 'ore'] as ResourceType[]).map(r => (
+            <button key={r} onClick={() => { onSelect(r); setOpen(false); }}
+              className="text-xs bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded">
+              {RESOURCE_EMOJI[r]}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: ActionPanelProps) {
   const { phase, current_player_idx, dice_rolled, dice_values, setup_step, players, resources } = gameState;
@@ -264,10 +327,13 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
           {dice_rolled && !needsRobberMove && gameState.robber_victims.length === 0 && (() => {
             const canBuyGrace = (myResources['wheat'] ?? 0) >= 1 && (myResources['sheep'] ?? 0) >= 1 && (myResources['ore'] ?? 0) >= 1;
             const deckCount = gameState.grace_deck_count ?? 0;
-            const myGraceCards = gameState.grace_cards_by_player?.[String(myPlayerIdx)] ?? [];
+            const myGraceCards = (gameState.grace_cards_by_player?.[String(myPlayerIdx)] ?? []).filter(c => !c.face_up);
+            const cardUsed = gameState.grace_card_used_this_turn;
+            const usableCards = myGraceCards.filter(c => c.purchased_turn !== gameState.turn_number);
             return (
-              <div>
-                <p className="text-gray-400 text-xs font-bold uppercase tracking-wide mb-1.5">発展カード</p>
+              <div className="space-y-2">
+                <p className="text-gray-400 text-xs font-bold uppercase tracking-wide">発展カード</p>
+                {/* 購入 */}
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => sendAction({ action: 'buy_grace_card' })}
@@ -282,10 +348,31 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
                     <span className="text-xs leading-none opacity-70">🌾🐑⛰️</span>
                   </button>
                   <span className="text-gray-400 text-xs">残り {deckCount} 枚</span>
-                  {myGraceCards.length > 0 && (
-                    <span className="text-yellow-300 text-xs">手札: {myGraceCards.length} 枚</span>
-                  )}
                 </div>
+                {/* 手札 */}
+                {myGraceCards.length > 0 && (
+                  <div className="space-y-1">
+                    {usableCards.some(c => c.type === 'road_building') && (
+                      <button
+                        onClick={() => sendAction({ action: 'use_road_building' })}
+                        disabled={cardUsed || gameState.pending_road_building > 0}
+                        className="w-full text-left text-xs py-1.5 px-2 rounded bg-gray-700 hover:bg-gray-600 disabled:bg-gray-900 disabled:text-gray-500 text-white transition-colors"
+                      >
+                        🛤️ 街道建設
+                        {gameState.pending_road_building > 0 && <span className="text-yellow-300 ml-1">（あと{gameState.pending_road_building}本）</span>}
+                      </button>
+                    )}
+                    {usableCards.some(c => c.type === 'year_of_plenty') && (
+                      <YearOfPlentySelector disabled={cardUsed} bank={gameState.bank} onSelect={(r1, r2) => sendAction({ action: 'use_year_of_plenty', resource1: r1, resource2: r2 })} />
+                    )}
+                    {usableCards.some(c => c.type === 'monopoly') && (
+                      <MonopolySelector disabled={cardUsed} onSelect={(r) => sendAction({ action: 'use_monopoly', resource: r })} />
+                    )}
+                    {myGraceCards.some(c => c.type === 'honor') && (
+                      <p className="text-xs text-gray-500">⭐ 得点 ×{myGraceCards.filter(c => c.type === 'honor').length}（使用不可）</p>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })()}
