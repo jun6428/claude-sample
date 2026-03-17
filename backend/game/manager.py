@@ -844,7 +844,19 @@ class ConnectionManager:
         if response not in ("accept", "reject"):
             await self.send_error(websocket, "Invalid response")
             return
+        # 承諾しても資源が足りない場合は自動拒否
+        if response == "accept":
+            for r, v in state.trade_offer.want.items():
+                if state.player_resources(player_idx).get(r, 0) < v:
+                    response = "reject"
+                    break
         state.trade_offer.responses[player_idx] = response
+
+        # 全員拒否なら自動キャンセル
+        other_idxs = [i for i in range(len(state.players)) if i != state.trade_offer.offerer_idx]
+        if all(state.trade_offer.responses.get(i) == "reject" for i in other_idxs):
+            state.trade_offer = None
+
         await self.broadcast_state(game_id)
 
     async def _handle_confirm_trade(self, game_id: str, player_idx: int, websocket: WebSocket, state: GameState, data: dict):

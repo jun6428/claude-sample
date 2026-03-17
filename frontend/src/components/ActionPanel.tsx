@@ -108,23 +108,25 @@ function TradePanel({ gameState, myPlayerIdx, sendAction }: { gameState: GameSta
   // 他プレイヤー視点：オファーへの返答UI
   if (offer && !isMyOffer) {
     const offererName = gameState.players[offer.offerer_idx]?.name;
+    const canAfford = Object.entries(offer.want).every(([r, v]) => (myResources[r as ResourceType] ?? 0) >= (v ?? 0));
     return (
       <div className="bg-gray-700 rounded p-2 space-y-2">
         <p className="text-xs text-yellow-300 font-bold">📦 {offererName} からの交換オファー</p>
         <div className="flex gap-2 text-xs">
           <div>
-            <span className="text-gray-400">渡す: </span>
+            <span className="text-gray-400">{offererName}が渡す: </span>
             {Object.entries(offer.give).map(([r, v]) => `${RESOURCE_EMOJI[r]}×${v}`).join(' ')}
           </div>
           <div>
-            <span className="text-gray-400">欲しい: </span>
+            <span className="text-gray-400">あなたが渡す: </span>
             {Object.entries(offer.want).map(([r, v]) => `${RESOURCE_EMOJI[r]}×${v}`).join(' ')}
           </div>
         </div>
         {!myResponse ? (
           <div className="flex gap-2">
             <button onClick={() => sendAction({ action: 'respond_trade', response: 'accept' })}
-              className="flex-1 bg-green-700 hover:bg-green-600 text-white text-xs py-1 rounded">
+              disabled={!canAfford}
+              className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-gray-800 disabled:text-gray-500 text-white text-xs py-1 rounded">
               ✓ 承諾
             </button>
             <button onClick={() => sendAction({ action: 'respond_trade', response: 'reject' })}
@@ -148,24 +150,30 @@ function TradePanel({ gameState, myPlayerIdx, sendAction }: { gameState: GameSta
       {offer && isMyOffer && (
         <div className="bg-gray-700 rounded p-2 space-y-1">
           <p className="text-xs text-yellow-300">オファー提示中...</p>
-          {acceptors.length > 0 ? (
-            <div className="space-y-1">
-              <p className="text-xs text-green-400">承諾者:</p>
-              {acceptors.map(idx => (
-                <button key={idx}
-                  onClick={() => sendAction({ action: 'confirm_trade', target_player_idx: idx })}
-                  className="w-full text-xs bg-green-800 hover:bg-green-700 text-white py-1 rounded flex items-center gap-2 px-2">
-                  <span className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: PLAYER_COLOR_MAP[gameState.players[idx]?.color] }} />
-                  {gameState.players[idx]?.name} と確定
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-gray-500">承諾待ち...</p>
-          )}
+          {gameState.players.map((p, idx) => {
+            if (idx === myPlayerIdx) return null;
+            const res = offer.responses[String(idx)];
+            return (
+              <div key={idx} className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: PLAYER_COLOR_MAP[p.color] }} />
+                <span className="text-xs text-white flex-1">{p.name}</span>
+                {res === 'accept' ? (
+                  <button
+                    onClick={() => sendAction({ action: 'confirm_trade', target_player_idx: idx })}
+                    className="text-xs bg-green-700 hover:bg-green-600 text-white px-2 py-0.5 rounded">
+                    ✓ 確定
+                  </button>
+                ) : res === 'reject' ? (
+                  <span className="text-xs text-gray-500">✕ 拒否</span>
+                ) : (
+                  <span className="text-xs text-gray-500">待機中...</span>
+                )}
+              </div>
+            );
+          })}
           <button onClick={() => sendAction({ action: 'cancel_trade' })}
-            className="w-full text-xs text-gray-400 hover:text-gray-300 py-1">
+            className="w-full text-xs text-gray-400 hover:text-gray-300 py-1 mt-1">
             取り下げ
           </button>
         </div>
@@ -180,13 +188,14 @@ function TradePanel({ gameState, myPlayerIdx, sendAction }: { gameState: GameSta
               <div className="flex flex-wrap gap-1">
                 {RESOURCE_TYPES.map(r => {
                   const count = (side === 'give' ? give : want)[r] ?? 0;
+                  const atMax = side === 'give' && count >= (myResources[r] ?? 0);
                   return (
                     <div key={r} className="flex items-center gap-0.5">
                       <button onClick={() => setCount(side, r, -1)} disabled={count === 0}
                         className="w-4 h-4 text-xs bg-gray-600 hover:bg-gray-500 disabled:opacity-30 rounded text-white leading-none">-</button>
                       <span className="text-xs w-5 text-center text-white">{RESOURCE_EMOJI[r]}{count > 0 ? `×${count}` : ''}</span>
-                      <button onClick={() => setCount(side, r, 1)}
-                        className="w-4 h-4 text-xs bg-gray-600 hover:bg-gray-500 rounded text-white leading-none">+</button>
+                      <button onClick={() => setCount(side, r, 1)} disabled={atMax}
+                        className="w-4 h-4 text-xs bg-gray-600 hover:bg-gray-500 disabled:opacity-30 rounded text-white leading-none">+</button>
                     </div>
                   );
                 })}
