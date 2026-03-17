@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { GameState, GameAction, ResourceType, BUILD_COSTS, RESOURCE_LABELS, PLAYER_COLOR_MAP, HONOR_LABEL } from '@/lib/types';
+import { GameState, GameAction, ResourceType, BUILD_COSTS, RESOURCE_LABELS, PLAYER_COLOR_MAP, HONOR_LABEL, calculateHonor } from '@/lib/types';
 import { useGameStore } from '@/store/gameStore';
 
 interface ActionPanelProps {
@@ -119,6 +119,7 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
 
   if (phase === 'ended') {
     const winner = gameState.winner !== null ? players[gameState.winner] : null;
+    const winnerHonor = gameState.winner !== null ? calculateHonor(gameState.winner, gameState) : 0;
     return (
       <div className="bg-gray-800 rounded-lg p-4">
         <h2 className="text-white font-bold mb-3">ゲーム終了!</h2>
@@ -128,7 +129,7 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
               🏆 {winner.name} の勝利!
             </p>
             <p className="text-gray-400 text-sm mb-4">
-              {winner.honor} {HONOR_LABEL}
+              {winnerHonor} {HONOR_LABEL}
             </p>
           </>
         )}

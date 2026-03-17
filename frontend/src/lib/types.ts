@@ -6,7 +6,6 @@ export type SetupStep = 'settlement' | 'road';
 export interface Player {
   name: string;
   color: string;
-  honor: number;
   ready: boolean;
 }
 
@@ -84,6 +83,17 @@ export interface WebSocketMessage {
   type: 'game_state' | 'error';
   state?: GameState;
   message?: string;
+}
+
+export function calculateHonor(playerIdx: number, gameState: GameState): number {
+  let honor = 0;
+  for (const building of Object.values(gameState.buildings)) {
+    if (building.player_idx === playerIdx) {
+      honor += building.type === 'city' ? 2 : 1;
+    }
+  }
+  if (gameState.longest_road_player === playerIdx) honor += 2;
+  return honor;
 }
 
 export type GameAction =

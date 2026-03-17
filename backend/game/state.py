@@ -49,14 +49,12 @@ class CityPiece:
 class Player:
     name: str
     color: str
-    honor: int = 0
     ready: bool = False
 
     def to_dict(self) -> dict:
         return {
             "name": self.name,
             "color": self.color,
-            "honor": self.honor,
             "ready": self.ready,
         }
 
@@ -219,9 +217,6 @@ class GameState:
             honor += 2
         return honor
 
-    def recalculate_honor(self):
-        for i, player in enumerate(self.players):
-            player.honor = self.get_honor(i)
 
     def is_vertex_valid_for_settlement(self, vertex_id: str, player_idx: int, setup: bool = False) -> bool:
         if vertex_id not in self.board.vertices:
@@ -321,9 +316,8 @@ class GameState:
                 self.add_log(f"{self.players[best_player].name} claims Longest Road ({best_length} roads)!")
 
     def check_winner(self) -> Optional[int]:
-        self.recalculate_honor()
-        for i, player in enumerate(self.players):
-            if player.honor >= 10:
+        for i in range(len(self.players)):
+            if self.get_honor(i) >= 10:
                 return i
         return None
 
@@ -364,7 +358,7 @@ class GameState:
     def from_dict(cls, data: dict) -> 'GameState':
         board = Board.from_dict(data['board'])
         players = [Player(name=p['name'], color=p['color'],
-                          honor=p['honor'], ready=p['ready'])
+                          ready=p['ready'])
                    for p in data['players']]
         n = len(players)
 

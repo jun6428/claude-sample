@@ -1,19 +1,36 @@
-# ADR 002: 発展カードをエンティティとしてモデリングする
+# ADR 002: 発展カードを GraceCard エンティティとしてモデリングする
 
 ## 決定
 
-発展カードを `DevCard` エンティティのリストで管理する。
+発展カードを `GraceCard` エンティティのリストで管理する。
 デッキ・手札・使用済みを別々のデータ構造で持つのではなく、
 全25枚が常に存在し `holder` と `face_up` で状態を表現する。
 
 ```python
 @dataclass
-class DevCard:
-    type: str           # knight | victory_point | road_building | year_of_plenty | monopoly
+class GraceCard:
+    type: str           # knight | honor | road_building | year_of_plenty | monopoly
     holder: str         # "deck" | "player_0" | "player_1" | ...
     face_up: bool = False
     purchased_turn: int = -1  # -1 = まだデッキ内
 ```
+
+## `GraceCard` という命名について
+
+### `DevCard` を使わない理由
+
+ソフトウェア開発において `Dev` は「開発環境」「デバッグ用」を強く連想させる。
+このコードベースには既に `DevPanel`（デバッグ用パネル）が存在しており、
+`DevCard` を追加すると「開発者用か？ゲーム用か？」という混乱が生じる。
+
+### `Grace`（恩寵）を選んだ理由
+
+このカードは羊・小麦・鉄鉱石（羊麦鉄）を奉納した見返りに天から授かる恵みである。
+`Privilege`（特権）はその結果の状態を表すに過ぎないが、
+`Grace` は「奉納という行為に対して天が応える」という本質的な構造を表現している。
+
+`Boon`（古英語で「祈りへの応答」）も候補に挙がったが、
+`Grace` の方が一般的で広く通じるため採用した。
 
 ## 背景
 

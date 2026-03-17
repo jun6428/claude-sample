@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { GameState, GameAction, PLAYER_COLOR_MAP, RESOURCE_LABELS, RESOURCE_COLORS, RESOURCE_EMOJI, ResourceType, HONOR_LABEL } from '@/lib/types';
+import { GameState, GameAction, PLAYER_COLOR_MAP, RESOURCE_LABELS, RESOURCE_COLORS, RESOURCE_EMOJI, ResourceType, HONOR_LABEL, calculateHonor } from '@/lib/types';
 
 interface PlayerPanelProps {
   gameState: GameState;
@@ -57,7 +57,7 @@ export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: Play
                   </span>
                 )}
                 <span className="text-yellow-400 font-bold text-sm">
-                  {player.honor} {HONOR_LABEL}
+                  {calculateHonor(idx, gameState)} {HONOR_LABEL}
                 </span>
               </div>
             </div>
