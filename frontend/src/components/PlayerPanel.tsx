@@ -13,6 +13,7 @@ const RESOURCE_TYPES: ResourceType[] = ['wood', 'brick', 'sheep', 'wheat', 'ore'
 
 const CARD_DISPLAY: Record<string, { emoji: string; label: string; border: string }> = {
   honor:          { emoji: '⭐', label: '得点', border: 'border-yellow-600' },
+  knight:         { emoji: '⚔️', label: '騎士', border: 'border-red-700' },
   road_building:  { emoji: '🛤️', label: '街道', border: 'border-orange-500' },
   monopoly:       { emoji: '💰', label: '独占', border: 'border-purple-500' },
   year_of_plenty: { emoji: '🌿', label: '収穫', border: 'border-green-500' },
@@ -22,7 +23,7 @@ function StackedCard({ type, count }: { type: string; count: number }) {
   const d = CARD_DISPLAY[type] ?? { emoji: '?', label: type, border: 'border-gray-500' };
   return (
     <div className="relative">
-      <div className={`flex flex-col items-center justify-center w-10 h-14 rounded border ${d.border} bg-gray-800 text-center`}>
+      <div className={`flex flex-col items-center justify-center w-8 h-11 rounded border ${d.border} bg-gray-800 text-center`}>
         <span className="text-base leading-none">{d.emoji}</span>
         <span className="text-yellow-300 text-xs leading-tight mt-0.5">{d.label}</span>
       </div>
@@ -125,13 +126,13 @@ export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: Play
                     <div className="mt-2">
 
                       <div className="flex justify-between gap-2">
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-1">
                           {groupCards(inHand).map(({ type, count }) => (
                             <StackedCard key={type} type={type} count={count} />
                           ))}
                         </div>
                         {used.length > 0 && (
-                          <div className="flex flex-wrap gap-2 justify-end opacity-40">
+                          <div className="flex flex-wrap gap-1 justify-end opacity-40">
                             {groupCards(used).map(({ type, count }) => (
                               <StackedCard key={`used-${type}`} type={type} count={count} />
                             ))}
@@ -200,7 +201,7 @@ export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: Play
                   {theirGraceCount > 0 && (
                     <div className="mt-2">
 
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-1">
                         {phase === 'ended' ? (
                           groupCards(gameState.grace_cards_by_player?.[String(idx)] ?? []).map(({ type, count }) => (
                             <StackedCard key={type} type={type} count={count} />
@@ -211,7 +212,7 @@ export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: Play
                           const hidden = cards.filter(c => !c.face_up);
                           return (
                             <div className="flex justify-between gap-2 w-full">
-                              <div className="flex flex-wrap gap-2">
+                              <div className="flex flex-wrap gap-1">
                                 {hidden.length > 0 && (
                                   <div className="relative">
                                     <div className="flex flex-col items-center justify-center w-10 h-14 rounded border border-gray-600 bg-gray-900 text-center">
@@ -226,7 +227,7 @@ export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: Play
                                 )}
                               </div>
                               {revealed.length > 0 && (
-                                <div className="flex flex-wrap gap-2 justify-end opacity-40">
+                                <div className="flex flex-wrap gap-1 justify-end opacity-40">
                                   {groupCards(revealed).map(({ type, count }) => (
                                     <StackedCard key={`revealed-${type}`} type={type} count={count} />
                                   ))}

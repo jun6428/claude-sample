@@ -8,9 +8,10 @@ const MAX = 19;
 
 interface BankDisplayProps {
   bank: Record<ResourceType, number>;
+  graceDeckCount?: number;
 }
 
-export default function BankDisplay({ bank }: BankDisplayProps) {
+export default function BankDisplay({ bank, graceDeckCount }: BankDisplayProps) {
   return (
     <div className="flex flex-col gap-1 select-none">
       {RESOURCES.map((r) => {
@@ -41,6 +42,31 @@ export default function BankDisplay({ bank }: BankDisplayProps) {
           </div>
         );
       })}
+      {graceDeckCount !== undefined && (() => {
+        const MAX_DECK = 25;
+        const filled = graceDeckCount / MAX_DECK;
+        const low = graceDeckCount <= 3;
+        return (
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className="text-xs leading-none flex-shrink-0" style={{ width: '0.5rem', textAlign: 'center' }}>✨</span>
+            <div className="w-14 h-2 rounded-full bg-black/30 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{
+                  width: `${filled * 100}%`,
+                  backgroundColor: low ? '#F87171' : '#EAB308',
+                }}
+              />
+            </div>
+            <span
+              className="text-xs font-mono w-4 text-right"
+              style={{ color: low ? '#F87171' : '#9CA3AF' }}
+            >
+              {graceDeckCount}
+            </span>
+          </div>
+        );
+      })()}
     </div>
   );
 }
