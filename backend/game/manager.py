@@ -143,7 +143,7 @@ class ConnectionManager:
             return
         if len(message) > 200:
             message = message[:200]
-        entry = {"player_idx": player_idx, "name": state.players[player_idx].name, "message": message}
+        entry = {"player_idx": player_idx, "name": state.players[player_idx].name, "message": message, "log_offset": len(state.log)}
         state.chat_log.append(entry)
         if len(state.chat_log) > 200:
             state.chat_log = state.chat_log[-200:]

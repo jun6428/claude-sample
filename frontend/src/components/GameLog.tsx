@@ -7,6 +7,7 @@ interface ChatEntry {
   player_idx: number;
   name: string;
   message: string;
+  log_offset: number;
 }
 
 interface GameLogProps {
@@ -27,8 +28,8 @@ export default function GameLog({ log, chatLog, myPlayerIdx, playerColors, onSen
 
   // ログとチャットを時系列順にマージ（インデックスで順序を保つ）
   const stream: StreamEntry[] = [
-    ...log.map((text, idx) => ({ kind: 'log' as const, text, idx })),
-    ...chatLog.map((entry, idx) => ({ kind: 'chat' as const, entry, idx: log.length + idx })),
+    ...log.map((text, idx) => ({ kind: 'log' as const, text, idx: idx * 2 })),
+    ...chatLog.map((entry, idx) => ({ kind: 'chat' as const, entry, idx: (entry.log_offset ?? 0) * 2 - 1 + idx * 0.001 })),
   ].sort((a, b) => a.idx - b.idx);
 
   useEffect(() => {
@@ -76,7 +77,7 @@ export default function GameLog({ log, chatLog, myPlayerIdx, playerColors, onSen
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && submit()}
+            onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && submit()}
             placeholder="メッセージを入力..."
             maxLength={200}
             className="flex-1 bg-gray-700 text-white text-xs rounded px-2 py-1 outline-none focus:ring-1 focus:ring-blue-500"
