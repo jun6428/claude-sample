@@ -102,7 +102,11 @@ export default function GamePage() {
     );
   }
 
-  const { phase, log, players } = gameState;
+  const { phase, log, chat_log, players } = gameState;
+
+  const playerColors = Object.fromEntries(
+    players.map((p, i) => [i, getPlayerColorHex(p.color)])
+  );
 
   return (
     <main className="min-h-screen bg-gray-900 flex flex-col">
@@ -139,7 +143,13 @@ export default function GamePage() {
         {/* Left panel: online layer (log, dev) */}
         <div className="w-64 flex-shrink-0 bg-gray-900 border-r border-gray-700 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto p-3">
-            <GameLog log={log} />
+            <GameLog
+              log={log}
+              chatLog={chat_log ?? []}
+              myPlayerIdx={myPlayerIdx}
+              playerColors={playerColors}
+              onSendChat={(msg) => sendAction({ action: 'chat', message: msg })}
+            />
           </div>
           <div className="flex-shrink-0 p-3 border-t border-gray-700">
             <DevPanel sendAction={sendAction} />

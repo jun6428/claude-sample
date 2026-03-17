@@ -85,6 +85,7 @@ export interface GameState {
   turn_number: number;
   pending_road_building: number;
   grace_card_used_this_turn: boolean;
+  chat_log: { player_idx: number; name: string; message: string }[];
 }
 
 export interface WebSocketMessage {
@@ -135,7 +136,8 @@ export type GameAction =
   | { action: 'use_road_building' }
   | { action: 'use_monopoly'; resource: ResourceType }
   | { action: 'use_year_of_plenty'; resource1: ResourceType; resource2: ResourceType }
-  | { action: 'debug_add_resource'; resource: ResourceType };
+  | { action: 'debug_add_resource'; resource: ResourceType }
+  | { action: 'chat'; message: string };
 
 export const RESOURCE_COLORS: Record<string, string> = {
   wood: '#228B22',

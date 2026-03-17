@@ -121,6 +121,8 @@ class ConnectionManager:
             await self._handle_use_knight(game_id, player_idx, websocket, state)
         elif action == "buy_grace_card":
             await self._handle_buy_grace_card(game_id, player_idx, websocket, state)
+        elif action == "chat":
+            await self._handle_chat(game_id, player_idx, websocket, state, data)
         elif action == "debug_add_resource":
             resource = data.get("resource")
             if resource not in RESOURCE_TYPES:
@@ -134,6 +136,18 @@ class ConnectionManager:
             await self.broadcast_state(game_id)
         else:
             await self.send_error(websocket, f"Unknown action: {action}")
+
+    async def _handle_chat(self, game_id: str, player_idx: int, websocket: WebSocket, state: GameState, data: dict):
+        message = str(data.get("message", "")).strip()
+        if not message:
+            return
+        if len(message) > 200:
+            message = message[:200]
+        entry = {"player_idx": player_idx, "name": state.players[player_idx].name, "message": message}
+        state.chat_log.append(entry)
+        if len(state.chat_log) > 200:
+            state.chat_log = state.chat_log[-200:]
+        await self.broadcast_state(game_id)
 
     async def _handle_join(self, game_id: str, player_name: str, websocket: WebSocket, state: GameState):
         if state.phase != "lobby":
