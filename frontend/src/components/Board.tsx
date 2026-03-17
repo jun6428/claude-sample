@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { GameState, PLAYER_COLOR_MAP, RESOURCE_COLORS, RESOURCE_LABELS, PORT_EMOJI } from '@/lib/types';
 import HexTile from './HexTile';
 import { GameAction } from '@/lib/types';
+import { useGameStore } from '@/store/gameStore';
 
 const HEX_SIZE = 60;
 const BOARD_PADDING = 80;
@@ -24,6 +25,9 @@ interface BoardProps {
 export default function Board({ gameState, myPlayerIdx, sendAction, selectedAction }: BoardProps) {
   const { board, buildings, roads, robber_hex, phase, setup_step, current_player_idx } = gameState;
   const isMyTurn = myPlayerIdx !== null && current_player_idx === myPlayerIdx;
+  const setSelectedAction = useGameStore((s) => s.setSelectedAction);
+  const [pendingEdge, setPendingEdge] = useState<string | null>(null);
+  useEffect(() => { setPendingEdge(null); }, [roads]);
 
   // Compute bounding box for SVG viewport
   const { minX, minY, maxX, maxY } = useMemo(() => {
@@ -93,10 +97,10 @@ export default function Board({ gameState, myPlayerIdx, sendAction, selectedActi
       const v = board.vertices[lastSettlement];
       return new Set(v?.adjacent_edges.filter((eid) => !roads[eid]) || []);
     }
-    if (phase === 'playing' && selectedAction === 'build_road' && gameState.dice_rolled) {
+    if (phase === 'playing' && (selectedAction === 'build_road' || (gameState.pending_road_building ?? 0) > 0) && gameState.dice_rolled) {
       return new Set(
         Object.keys(board.edges).filter((eid) => {
-          if (roads[eid] !== undefined) return false;
+          if (roads[eid] !== undefined || eid === pendingEdge) return false;
           const edge = board.edges[eid];
           for (const vid of [edge.v1, edge.v2]) {
             const building = buildings[vid];
@@ -113,19 +117,21 @@ export default function Board({ gameState, myPlayerIdx, sendAction, selectedActi
       );
     }
     return new Set<string>();
-  }, [isMyTurn, phase, setup_step, board, buildings, roads, myPlayerIdx, selectedAction, gameState.dice_rolled]);
+  }, [isMyTurn, phase, setup_step, board, buildings, roads, myPlayerIdx, selectedAction, gameState.dice_rolled, pendingEdge]);
 
   const clickableHexes = useMemo(() => {
     if (!isMyTurn) return new Set<string>();
-    if (phase === 'playing' && gameState.dice_rolled &&
-        gameState.dice_values[0] + gameState.dice_values[1] === 7 &&
-        Object.keys(gameState.pending_discards).length === 0) {
-      return new Set(
-        Object.keys(board.hexes).filter((hid) => hid !== robber_hex)
-      );
+    if (phase === 'playing') {
+      const needsRobber = gameState.pending_robber_move ||
+        (gameState.dice_rolled &&
+         gameState.dice_values[0] + gameState.dice_values[1] === 7 &&
+         Object.keys(gameState.pending_discards).length === 0);
+      if (needsRobber) {
+        return new Set(Object.keys(board.hexes).filter((hid) => hid !== robber_hex));
+      }
     }
     return new Set<string>();
-  }, [isMyTurn, phase, gameState.dice_rolled, gameState.dice_values, gameState.pending_discards, board, robber_hex]);
+  }, [isMyTurn, phase, gameState.pending_robber_move, gameState.dice_rolled, gameState.dice_values, gameState.pending_discards, board, robber_hex]);
 
   const handleVertexClick = (vid: string) => {
     if (!clickableVertices.has(vid)) return;
@@ -133,8 +139,10 @@ export default function Board({ gameState, myPlayerIdx, sendAction, selectedActi
       sendAction({ action: 'place_settlement', vertex_id: vid, is_city: false });
     } else if (selectedAction === 'build_settlement') {
       sendAction({ action: 'build_settlement', vertex_id: vid });
+      setSelectedAction(null);
     } else if (selectedAction === 'build_city') {
       sendAction({ action: 'build_city', vertex_id: vid });
+      setSelectedAction(null);
     }
   };
 
@@ -142,7 +150,8 @@ export default function Board({ gameState, myPlayerIdx, sendAction, selectedActi
     if (!clickableEdges.has(eid)) return;
     if (phase === 'setup') {
       sendAction({ action: 'place_road', edge_id: eid });
-    } else if (selectedAction === 'build_road') {
+    } else if (selectedAction === 'build_road' || (gameState.pending_road_building ?? 0) > 0) {
+      setPendingEdge(eid);
       sendAction({ action: 'build_road', edge_id: eid });
     }
   };
@@ -203,29 +212,39 @@ onClick={clickableHexes.has(hex.hex_id) ? () => handleHexClick(hex.hex_id) : und
           })}
 
           {/* Render clickable edge highlights */}
-          {Array.from(clickableEdges).map((eid) => {
-            if (roads[eid] !== undefined) return null;
-            const edge = board.edges[eid];
-            if (!edge) return null;
-            const v1 = board.vertices[edge.v1];
-            const v2 = board.vertices[edge.v2];
-            if (!v1 || !v2) return null;
-            return (
-              <line
-                key={`highlight-${eid}`}
-                x1={v1.x}
-                y1={v1.y}
-                x2={v2.x}
-                y2={v2.y}
-                stroke="#FBBF24"
-                strokeWidth={6}
-                strokeLinecap="round"
-                opacity={0.7}
-                style={{ cursor: 'pointer' }}
-                onClick={() => handleEdgeClick(eid)}
-              />
-            );
-          })}
+          {(() => {
+            const myColor = myPlayerIdx !== null ? PLAYER_COLOR_MAP[gameState.players[myPlayerIdx]?.color] : '#FBBF24';
+            return Array.from(clickableEdges).map((eid) => {
+              if (roads[eid] !== undefined) return null;
+              const edge = board.edges[eid];
+              if (!edge) return null;
+              const v1 = board.vertices[edge.v1];
+              const v2 = board.vertices[edge.v2];
+              if (!v1 || !v2) return null;
+              return (
+                <g key={`highlight-${eid}`} style={{ cursor: 'pointer' }} onClick={() => handleEdgeClick(eid)}>
+                  {(() => {
+                    const dx = v2.x - v1.x, dy = v2.y - v1.y;
+                    const len = Math.sqrt(dx * dx + dy * dy);
+                    const nx = dx / len, ny = dy / len;
+                    const inset = 14;
+                    const x1 = v1.x + nx * inset, y1 = v1.y + ny * inset;
+                    const x2 = v2.x - nx * inset, y2 = v2.y - ny * inset;
+                    return (<>
+                      <line x1={x1} y1={y1} x2={x2} y2={y2}
+                        stroke="white" strokeWidth={8} strokeLinecap="round" opacity={0.45} />
+                      <line x1={x1} y1={y1} x2={x2} y2={y2}
+                        stroke="black" strokeWidth={5} strokeLinecap="round" opacity={0.25} />
+                    </>);
+                  })()}
+                  <circle
+                    cx={(v1.x + v2.x) / 2} cy={(v1.y + v2.y) / 2}
+                    r={8} fill="#FBBF24" stroke="white" strokeWidth={2} opacity={0.8}
+                  />
+                </g>
+              );
+            });
+          })()}
 
           {/* Render buildings */}
           {Object.entries(buildings).map(([vid, building]) => {

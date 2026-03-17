@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { GameState, GameAction, ResourceType, BUILD_COSTS, RESOURCE_LABELS, PLAYER_COLOR_MAP, HONOR_LABEL } from '@/lib/types';
+import { GameState, GameAction, ResourceType, BUILD_COSTS, RESOURCE_LABELS, RESOURCE_EMOJI, PLAYER_COLOR_MAP, HONOR_LABEL, calculateHonor } from '@/lib/types';
 import { useGameStore } from '@/store/gameStore';
 
 interface ActionPanelProps {
@@ -11,6 +11,75 @@ interface ActionPanelProps {
 }
 
 const RESOURCE_TYPES: ResourceType[] = ['wood', 'brick', 'sheep', 'wheat', 'ore'];
+
+function YearOfPlentySelector({ disabled, bank, onSelect }: { disabled: boolean; bank: Record<string, number>; onSelect: (r1: ResourceType, r2: ResourceType) => void }) {
+  const [open, setOpen] = React.useState(false);
+  const [first, setFirst] = React.useState<ResourceType | null>(null);
+  const resources: ResourceType[] = ['wood', 'brick', 'sheep', 'wheat', 'ore'];
+  const canUse = resources.some(r => (bank[r] ?? 0) > 0);
+  const availableFirst = resources.filter(r => (bank[r] ?? 0) > 0);
+  const availableSecond = first
+    ? resources.filter(r => (bank[r] ?? 0) >= (r === first ? 2 : 1))
+    : availableFirst;
+  return (
+    <div>
+      <button
+        onClick={() => { setOpen(o => !o); setFirst(null); }}
+        disabled={disabled || !canUse}
+        className={`flex flex-col items-center gap-1 py-2 px-3 rounded transition-colors ${
+          !disabled && canUse ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-900 text-gray-500 cursor-not-allowed'
+        }`}
+      >
+        <span className="text-base leading-none">🌿</span>
+        <span className="text-xs leading-none opacity-70">収穫</span>
+      </button>
+      {open && !disabled && canUse && (
+        <div className="mt-1 bg-gray-900 rounded p-2 space-y-1">
+          <p className="text-gray-400 text-xs">{first ? `1枚目: ${RESOURCE_EMOJI[first]} → 2枚目を選択` : '1枚目を選択'}</p>
+          <div className="flex gap-1 flex-wrap">
+            {(first ? availableSecond : availableFirst).map(r => (
+              <button key={r} onClick={() => {
+                if (!first) { setFirst(r); }
+                else { onSelect(first, r); setOpen(false); setFirst(null); }
+              }}
+                className="text-xs bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded">
+                {RESOURCE_EMOJI[r]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MonopolySelector({ disabled, onSelect }: { disabled: boolean; onSelect: (r: ResourceType) => void }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(o => !o)}
+        disabled={disabled}
+        className={`flex flex-col items-center gap-1 py-2 px-3 rounded transition-colors ${
+          !disabled ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-900 text-gray-500 cursor-not-allowed'
+        }`}
+      >
+        <span className="text-base leading-none">💰</span>
+        <span className="text-xs leading-none opacity-70">独占</span>
+      </button>
+      {open && !disabled && (
+        <div className="flex gap-1 mt-1 flex-wrap">
+          {(['wood', 'brick', 'sheep', 'wheat', 'ore'] as ResourceType[]).map(r => (
+            <button key={r} onClick={() => { onSelect(r); setOpen(false); }}
+              className="text-xs bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded">
+              {RESOURCE_EMOJI[r]}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: ActionPanelProps) {
   const { phase, current_player_idx, dice_rolled, dice_values, setup_step, players, resources } = gameState;
@@ -26,7 +95,8 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
   const isMyTurn = myPlayerIdx !== null && current_player_idx === myPlayerIdx;
   const myResources = resources[String(myPlayerIdx)] || {};
   const diceTotal = dice_values[0] + dice_values[1];
-  const needsRobberMove = dice_rolled && diceTotal === 7 && !gameState.robber_moved && Object.keys(gameState.pending_discards).length === 0;
+  const needsRobberMove = gameState.pending_robber_move ||
+    (dice_rolled && diceTotal === 7 && !gameState.robber_moved && Object.keys(gameState.pending_discards).length === 0);
 
   // 港のレートを計算
   const myTradeRatios = React.useMemo(() => {
@@ -119,6 +189,7 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
 
   if (phase === 'ended') {
     const winner = gameState.winner !== null ? players[gameState.winner] : null;
+    const winnerHonor = gameState.winner !== null ? calculateHonor(gameState.winner, gameState) : 0;
     return (
       <div className="bg-gray-800 rounded-lg p-4">
         <h2 className="text-white font-bold mb-3">ゲーム終了!</h2>
@@ -128,7 +199,7 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
               🏆 {winner.name} の勝利!
             </p>
             <p className="text-gray-400 text-sm mb-4">
-              {winner.honor} {HONOR_LABEL}
+              {winnerHonor} {HONOR_LABEL}
             </p>
           </>
         )}
@@ -159,10 +230,15 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
         </div>
       )}
 
-      {isMyTurn && (
+      {isMyTurn && (() => {
+        const pendingDiscards = Object.keys(gameState.pending_discards).length > 0;
+        const pendingSteal = gameState.robber_victims.length > 0;
+        const preDice = !dice_rolled && !needsRobberMove && !pendingSteal;
+        const canAct = dice_rolled && !needsRobberMove && !pendingSteal && !pendingDiscards;
+        return (
         <>
-          {/* Dice */}
-          {!dice_rolled && (
+          {/* ダイス前 */}
+          {preDice && (
             <button
               onClick={() => sendAction({ action: 'roll_dice' })}
               className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded transition-colors"
@@ -171,26 +247,28 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
             </button>
           )}
 
-          {/* Waiting for discards — exclusive block, hides all other actions */}
-          {dice_rolled && Object.keys(gameState.pending_discards).length > 0 ? (
+          {/* 捨て牌待ち */}
+          {pendingDiscards && (
             <div className="bg-gray-700 rounded p-3">
               <p className="text-gray-300 text-sm font-bold">他のプレイヤーの捨て牌を待っています...</p>
               <p className="text-gray-500 text-xs mt-1">
                 {Object.keys(gameState.pending_discards).map(i => players[Number(i)]?.name).join('、')} が選択中
               </p>
             </div>
-          ) : (
-          <>
-          {/* Robber move instruction */}
+          )}
+
+          {/* ロバー移動待ち */}
           {needsRobberMove && (
             <div className="bg-red-900 rounded p-2">
-              <p className="text-red-200 text-sm font-bold">7が出た！ロバーを移動してください</p>
+              <p className="text-red-200 text-sm font-bold">
+                {gameState.pending_robber_move ? '⚔️ 騎士発動！ロバーを移動してください' : '7が出た！ロバーを移動してください'}
+              </p>
               <p className="text-red-300 text-xs">別のタイルをクリック</p>
             </div>
           )}
 
           {/* Steal target selection */}
-          {gameState.robber_victims.length > 0 && (
+          {pendingSteal && (
             <div className="bg-gray-800 rounded-lg p-3 space-y-2">
               <p className="text-red-300 text-xs font-bold">盗む相手を選んでください</p>
               <div className="flex flex-col gap-1.5">
@@ -217,7 +295,7 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
           )}
 
           {/* Build actions */}
-          {dice_rolled && !needsRobberMove && gameState.robber_victims.length === 0 && (
+          {canAct && (
             <div>
               <p className="text-gray-400 text-xs font-bold uppercase tracking-wide mb-1.5">建設</p>
               <div className="grid grid-cols-3 gap-1.5">
@@ -259,8 +337,79 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
             </div>
           )}
 
+          {/* 発展カードを引く（ダイス後のみ） */}
+          {canAct && (() => {
+            const canBuyGrace = (myResources['wheat'] ?? 0) >= 1 && (myResources['sheep'] ?? 0) >= 1 && (myResources['ore'] ?? 0) >= 1;
+            const deckCount = gameState.grace_deck_count ?? 0;
+            return (
+              <div>
+                <p className="text-gray-400 text-xs font-bold uppercase tracking-wide mb-1.5">発展カードを引く</p>
+                <button
+                  onClick={() => sendAction({ action: 'buy_grace_card' })}
+                  disabled={!canBuyGrace || deckCount === 0}
+                  className={`flex flex-col items-center gap-1 py-2 px-3 rounded transition-colors ${
+                    canBuyGrace && deckCount > 0
+                      ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                      : 'bg-gray-900 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  <span className="text-base leading-none">✨</span>
+                  <span className="text-xs leading-none opacity-70">🌾🐑⛰️</span>
+                </button>
+              </div>
+            );
+          })()}
+
+          {/* 発展カードを使う（騎士はダイス前後両方、他はダイス後のみ） */}
+          {(preDice || canAct) && (() => {
+            const cardUsed = gameState.grace_card_used_this_turn;
+            const myGraceCards = (gameState.grace_cards_by_player?.[String(myPlayerIdx)] ?? []).filter(c => !c.face_up);
+            const usableCards = myGraceCards.filter(c => c.purchased_turn !== gameState.turn_number);
+            const hasKnight = usableCards.some(c => c.type === 'knight');
+            const hasRoadBuilding = usableCards.some(c => c.type === 'road_building');
+            const hasYearOfPlenty = usableCards.some(c => c.type === 'year_of_plenty');
+            const hasMonopoly = usableCards.some(c => c.type === 'monopoly');
+            const btnClass = (active: boolean) =>
+              `flex flex-col items-center gap-1 py-2 px-3 rounded transition-colors ${
+                active ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-900 text-gray-500 cursor-not-allowed'
+              }`;
+            return (
+              <div>
+                <p className="text-gray-400 text-xs font-bold uppercase tracking-wide mb-1.5">発展カードを使う</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(preDice || canAct) && (
+                    <button
+                      onClick={() => sendAction({ action: 'use_knight' })}
+                      disabled={cardUsed || !hasKnight}
+                      className={btnClass(!cardUsed && hasKnight)}
+                    >
+                      <span className="text-base leading-none">⚔️</span>
+                      <span className="text-xs leading-none opacity-70">騎士</span>
+                    </button>
+                  )}
+                  {canAct && (
+                    <>
+                      <button
+                        onClick={() => sendAction({ action: 'use_road_building' })}
+                        disabled={cardUsed || !hasRoadBuilding || gameState.pending_road_building > 0}
+                        className={btnClass(!cardUsed && hasRoadBuilding && gameState.pending_road_building === 0)}
+                      >
+                        <span className="text-base leading-none">🛤️</span>
+                        <span className="text-xs leading-none opacity-70">
+                          {gameState.pending_road_building > 0 ? `残り${gameState.pending_road_building}本` : '街道'}
+                        </span>
+                      </button>
+                      <YearOfPlentySelector disabled={cardUsed || !hasYearOfPlenty} bank={gameState.bank} onSelect={(r1, r2) => sendAction({ action: 'use_year_of_plenty', resource1: r1, resource2: r2 })} />
+                      <MonopolySelector disabled={cardUsed || !hasMonopoly} onSelect={(r) => sendAction({ action: 'use_monopoly', resource: r })} />
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Bank trade */}
-          {dice_rolled && !needsRobberMove && gameState.robber_victims.length === 0 && (
+          {canAct && (
             <div>
               <button
                 onClick={() => setShowTrade(!showTrade)}
@@ -321,7 +470,7 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
           )}
 
           {/* End turn */}
-          {dice_rolled && !needsRobberMove && gameState.robber_victims.length === 0 && (
+          {canAct && (
             <button
               onClick={() => {
                 setSelectedAction(null);
@@ -332,10 +481,9 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
               ターン終了
             </button>
           )}
-          </>
-          )}
         </>
-      )}
+        );
+      })()}
 
       {!isMyTurn && phase === 'playing' && (
         <p className="text-gray-400 text-sm text-center py-2">

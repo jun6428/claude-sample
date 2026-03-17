@@ -6,7 +6,6 @@ export type SetupStep = 'settlement' | 'road';
 export interface Player {
   name: string;
   color: string;
-  honor: number;
   ready: boolean;
 }
 
@@ -72,18 +71,49 @@ export interface GameState {
   resources: Record<string, Record<ResourceType, number>>;
   longest_road_player: number | null;
   longest_road_length: number;
+  largest_army_player: number | null;
+  largest_army_count: number;
+  pending_robber_move: boolean;
   winner: number | null;
   log: string[];
   bank: Record<ResourceType, number>;
   last_burst: Record<string, number>;
   pending_discards: Record<string, number>;
   robber_victims: number[];
+  grace_deck_count: number;
+  grace_cards_by_player: Record<string, { type: string; face_up: boolean; purchased_turn: number }[]>;
+  turn_number: number;
+  pending_road_building: number;
+  grace_card_used_this_turn: boolean;
 }
 
 export interface WebSocketMessage {
   type: 'game_state' | 'error';
   state?: GameState;
   message?: string;
+}
+
+function calcBaseHonor(playerIdx: number, gameState: GameState): number {
+  let honor = 0;
+  for (const building of Object.values(gameState.buildings)) {
+    if (building.player_idx === playerIdx) {
+      honor += building.type === 'city' ? 2 : 1;
+    }
+  }
+  if (gameState.longest_road_player === playerIdx) honor += 2;
+  if (gameState.largest_army_player === playerIdx) honor += 2;
+  return honor;
+}
+
+/** 自分視点：honorカード含む全GP */
+export function calculateHonor(playerIdx: number, gameState: GameState): number {
+  const graceCards = gameState.grace_cards_by_player?.[String(playerIdx)] ?? [];
+  return calcBaseHonor(playerIdx, gameState) + graceCards.filter(c => c.type === 'honor').length;
+}
+
+/** 他人視点：honorカード非公開（建物・最長道路のみ） */
+export function calculateVisibleHonor(playerIdx: number, gameState: GameState): number {
+  return calcBaseHonor(playerIdx, gameState);
 }
 
 export type GameAction =
@@ -100,6 +130,11 @@ export type GameAction =
   | { action: 'discard_resources'; resources: Partial<Record<ResourceType, number>> }
   | { action: 'steal_from'; target_player_idx: number }
   | { action: 'end_turn' }
+  | { action: 'buy_grace_card' }
+  | { action: 'use_knight' }
+  | { action: 'use_road_building' }
+  | { action: 'use_monopoly'; resource: ResourceType }
+  | { action: 'use_year_of_plenty'; resource1: ResourceType; resource2: ResourceType }
   | { action: 'debug_add_resource'; resource: ResourceType };
 
 export const RESOURCE_COLORS: Record<string, string> = {

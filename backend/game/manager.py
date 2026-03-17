@@ -5,7 +5,7 @@ from fastapi import WebSocket
 
 from .state import (
     GameState, Player, create_game_state, setup_game,
-    PLAYER_COLORS, RESOURCE_TYPES, BUILD_COSTS
+    PLAYER_COLORS, RESOURCE_TYPES, BUILD_COSTS, GRACE_CARD_COST
 )
 
 
@@ -111,6 +111,16 @@ class ConnectionManager:
             await self._handle_steal_from(game_id, player_idx, websocket, state, data)
         elif action == "end_turn":
             await self._handle_end_turn(game_id, player_idx, websocket, state)
+        elif action == "use_year_of_plenty":
+            await self._handle_use_year_of_plenty(game_id, player_idx, websocket, state, data)
+        elif action == "use_road_building":
+            await self._handle_use_road_building(game_id, player_idx, websocket, state)
+        elif action == "use_monopoly":
+            await self._handle_use_monopoly(game_id, player_idx, websocket, state, data)
+        elif action == "use_knight":
+            await self._handle_use_knight(game_id, player_idx, websocket, state)
+        elif action == "buy_grace_card":
+            await self._handle_buy_grace_card(game_id, player_idx, websocket, state)
         elif action == "debug_add_resource":
             resource = data.get("resource")
             if resource not in RESOURCE_TYPES:
@@ -368,8 +378,10 @@ class ConnectionManager:
         if state.current_player_idx != player_idx:
             await self.send_error(websocket, "Not your turn")
             return
-        if not state.dice_rolled or sum(state.dice_values) != 7:
-            await self.send_error(websocket, "Can only move robber when 7 is rolled")
+        dice_triggered = (state.dice_rolled and sum(state.dice_values) == 7
+                          and not state.pending_discards)
+        if not dice_triggered and not state.pending_robber_move:
+            await self.send_error(websocket, "Cannot move robber now")
             return
         if state.pending_discards:
             await self.send_error(websocket, "Waiting for players to discard")
@@ -385,6 +397,7 @@ class ConnectionManager:
 
         state.robber_hex = hex_id
         state.robber_moved = True
+        state.pending_robber_move = False
         state.add_log(f"{state.players[player_idx].name} moved the robber to {hex_id}.")
 
         # Collect eligible victims (have buildings on this hex, not self)
@@ -458,10 +471,12 @@ class ConnectionManager:
             await self.send_error(websocket, "edge_id required")
             return
 
-        cost = BUILD_COSTS["road"]
-        if not state.can_afford(player_idx, cost):
-            await self.send_error(websocket, "Cannot afford road (need 1 wood + 1 brick)")
-            return
+        free_build = state.pending_road_building > 0
+        if not free_build:
+            cost = BUILD_COSTS["road"]
+            if not state.can_afford(player_idx, cost):
+                await self.send_error(websocket, "Cannot afford road (need 1 wood + 1 brick)")
+                return
 
         if not state.is_edge_valid_for_road(edge_id, player_idx):
             await self.send_error(websocket, "Invalid road location")
@@ -469,19 +484,24 @@ class ConnectionManager:
 
         road_piece = state.supply_piece(player_idx, "road")
         if not road_piece:
-            await self.send_error(websocket, "No road pieces left")
+            if free_build:
+                state.pending_road_building = 0
+                state.add_log(f"{state.players[player_idx].name} has no road pieces left.")
+                await self.broadcast_state(game_id)
+            else:
+                await self.send_error(websocket, "No road pieces left")
             return
-        state.pay_cost(player_idx, cost)
+        if not free_build:
+            state.pay_cost(player_idx, BUILD_COSTS["road"])
+        else:
+            state.pending_road_building -= 1
         road_piece.location = edge_id
         state.update_longest_road()
-        state.recalculate_honor()
         state.add_log(f"{state.players[player_idx].name} built a road.")
 
         winner = state.check_winner()
         if winner is not None:
-            state.winner = winner
-            state.phase = "ended"
-            state.add_log(f"{state.players[winner].name} wins!")
+            state.end_game(winner)
 
         await self.broadcast_state(game_id)
 
@@ -517,14 +537,11 @@ class ConnectionManager:
             return
         state.pay_cost(player_idx, cost)
         settlement_piece.location = vertex_id
-        state.recalculate_honor()
         state.add_log(f"{state.players[player_idx].name} built a settlement.")
 
         winner = state.check_winner()
         if winner is not None:
-            state.winner = winner
-            state.phase = "ended"
-            state.add_log(f"{state.players[winner].name} wins!")
+            state.end_game(winner)
 
         await self.broadcast_state(game_id)
 
@@ -566,14 +583,11 @@ class ConnectionManager:
             return
         state.pay_cost(player_idx, cost)
         city_piece.location = vertex_id
-        state.recalculate_honor()
         state.add_log(f"{state.players[player_idx].name} upgraded to a city.")
 
         winner = state.check_winner()
         if winner is not None:
-            state.winner = winner
-            state.phase = "ended"
-            state.add_log(f"{state.players[winner].name} wins!")
+            state.end_game(winner)
 
         await self.broadcast_state(game_id)
 
@@ -615,6 +629,131 @@ class ConnectionManager:
 
         await self.broadcast_state(game_id)
 
+    async def _check_can_use_grace_card(self, websocket: WebSocket, state: GameState, player_idx: int, card_type: str) -> bool:
+        if state.phase != "playing":
+            await self.send_error(websocket, "Not in playing phase")
+            return False
+        if state.current_player_idx != player_idx:
+            await self.send_error(websocket, "Not your turn")
+            return False
+        if not state.dice_rolled:
+            await self.send_error(websocket, "Must roll dice first")
+            return False
+        if state.grace_card_used_this_turn:
+            await self.send_error(websocket, "Already used a grace card this turn")
+            return False
+        has_card = any(
+            c for c in state.grace_cards
+            if c.holder == f"player_{player_idx}" and c.type == card_type and not c.face_up
+               and c.purchased_turn != state.turn_number
+        )
+        if not has_card:
+            await self.send_error(websocket, f"No usable {card_type} card in hand")
+            return False
+        return True
+
+    async def _handle_use_year_of_plenty(self, game_id: str, player_idx: int, websocket: WebSocket, state: GameState, data: dict):
+        if not await self._check_can_use_grace_card(websocket, state, player_idx, "year_of_plenty"):
+            return
+        r1 = data.get("resource1")
+        r2 = data.get("resource2")
+        if r1 not in RESOURCE_TYPES or r2 not in RESOURCE_TYPES:
+            await self.send_error(websocket, "Invalid resource")
+            return
+        need: dict[str, int] = {}
+        need[r1] = need.get(r1, 0) + 1
+        need[r2] = need.get(r2, 0) + 1
+        for r, n in need.items():
+            if state.bank_stock(r) < n:
+                await self.send_error(websocket, f"Bank has only {state.bank_stock(r)} {r}")
+                return
+        state.use_grace_card(player_idx, "year_of_plenty")
+        state.transfer_from_bank(r1, player_idx, 1)
+        state.transfer_from_bank(r2, player_idx, 1)
+        state.add_log(f"{state.players[player_idx].name} used Year of Plenty — received {r1} and {r2}.")
+        await self.broadcast_state(game_id)
+
+    async def _handle_use_knight(self, game_id: str, player_idx: int, websocket: WebSocket, state: GameState):
+        if state.phase != "playing":
+            await self.send_error(websocket, "Not in playing phase")
+            return
+        if state.current_player_idx != player_idx:
+            await self.send_error(websocket, "Not your turn")
+            return
+        if state.grace_card_used_this_turn:
+            await self.send_error(websocket, "Already used a grace card this turn")
+            return
+        if state.pending_robber_move:
+            await self.send_error(websocket, "Must move robber first")
+            return
+        has_card = any(
+            c for c in state.grace_cards
+            if c.holder == f"player_{player_idx}" and c.type == "knight"
+            and not c.face_up and c.purchased_turn != state.turn_number
+        )
+        if not has_card:
+            await self.send_error(websocket, "No usable knight card in hand")
+            return
+        state.use_grace_card(player_idx, "knight")
+        state.pending_robber_move = True
+        state.update_largest_army()
+        state.add_log(f"{state.players[player_idx].name} played a Knight — move the robber.")
+        await self.broadcast_state(game_id)
+
+    async def _handle_use_road_building(self, game_id: str, player_idx: int, websocket: WebSocket, state: GameState):
+        if not await self._check_can_use_grace_card(websocket, state, player_idx, "road_building"):
+            return
+        state.use_grace_card(player_idx, "road_building")
+        state.pending_road_building = 2
+        state.add_log(f"{state.players[player_idx].name} used Road Building — place 2 roads for free.")
+        await self.broadcast_state(game_id)
+
+    async def _handle_use_monopoly(self, game_id: str, player_idx: int, websocket: WebSocket, state: GameState, data: dict):
+        if not await self._check_can_use_grace_card(websocket, state, player_idx, "monopoly"):
+            return
+        resource = data.get("resource")
+        if resource not in RESOURCE_TYPES:
+            await self.send_error(websocket, "Invalid resource")
+            return
+        state.use_grace_card(player_idx, "monopoly")
+        total = 0
+        for i in range(len(state.players)):
+            if i == player_idx:
+                continue
+            count = state.player_resources(i).get(resource, 0)
+            if count > 0:
+                state.transfer_between_players(resource, i, player_idx, count)
+                total += count
+        state.add_log(f"{state.players[player_idx].name} used Monopoly on {resource} — collected {total}.")
+        await self.broadcast_state(game_id)
+
+    async def _handle_buy_grace_card(self, game_id: str, player_idx: int, websocket: WebSocket, state: GameState):
+        if state.phase != "playing":
+            await self.send_error(websocket, "Not in playing phase")
+            return
+        if state.current_player_idx != player_idx:
+            await self.send_error(websocket, "Not your turn")
+            return
+        if not state.dice_rolled:
+            await self.send_error(websocket, "Must roll dice first")
+            return
+        if state.grace_deck_count() == 0:
+            await self.send_error(websocket, "No grace cards left in deck")
+            return
+        if not state.can_afford(player_idx, GRACE_CARD_COST):
+            await self.send_error(websocket, "Cannot afford grace card (need 1 wheat + 1 sheep + 1 ore)")
+            return
+
+        state.pay_cost(player_idx, GRACE_CARD_COST)
+        card = state.draw_grace_card(player_idx)
+        state.add_log(f"{state.players[player_idx].name} received a grace card.")
+
+        winner = state.check_winner()
+        if winner is not None:
+            state.end_game(winner)
+
+        await self.broadcast_state(game_id)
+
     async def _handle_end_turn(self, game_id: str, player_idx: int, websocket: WebSocket, state: GameState):
         if state.phase != "playing":
             await self.send_error(websocket, "Not in playing phase")
@@ -631,7 +770,10 @@ class ConnectionManager:
 
         n = len(state.players)
         state.current_player_idx = (state.current_player_idx + 1) % n
+        state.turn_number += 1
         state.dice_rolled = False
+        state.pending_road_building = 0
+        state.grace_card_used_this_turn = False
         state.dice_values = (0, 0)
         state.robber_moved = False
         state.last_burst = {}

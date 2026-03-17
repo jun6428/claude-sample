@@ -152,7 +152,7 @@ export default function GamePage() {
             <DiceDisplay diceRolled={gameState.dice_rolled} diceValues={gameState.dice_values} players={players} lastBurst={gameState.last_burst} />
           </div>
           <div className="absolute top-4 right-4 z-10">
-            <BankDisplay bank={gameState.bank} />
+            <BankDisplay bank={gameState.bank} graceDeckCount={gameState.grace_deck_count} />
           </div>
           <Board
             gameState={gameState}

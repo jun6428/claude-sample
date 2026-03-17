@@ -20,11 +20,28 @@ SETTLEMENT_LIMIT = 5
 CITY_LIMIT = 4
 RESOURCE_CARD_LIMIT = 19
 
+GRACE_CARD_COUNTS = {
+    "honor": 5,
+    "knight": 14,
+    "road_building": 2,
+    "monopoly": 2,
+    "year_of_plenty": 2,
+}
+GRACE_CARD_COST = {"wheat": 1, "sheep": 1, "ore": 1}
+
 
 @dataclass
 class ResourceCard:
     resource: str  # "wood" | "brick" | "sheep" | "wheat" | "ore"
     holder: str    # "bank" | "player_0" | "player_1" | ...
+
+
+@dataclass
+class GraceCard:
+    type: str           # "honor" | "knight" | "road_building" | "year_of_plenty" | "monopoly"
+    holder: str         # "deck" | "player_0" | "player_1" | ...
+    face_up: bool = False
+    purchased_turn: int = -1  # -1 = まだデッキ内
 
 
 @dataclass
@@ -49,14 +66,12 @@ class CityPiece:
 class Player:
     name: str
     color: str
-    honor: int = 0
     ready: bool = False
 
     def to_dict(self) -> dict:
         return {
             "name": self.name,
             "color": self.color,
-            "honor": self.honor,
             "ready": self.ready,
         }
 
@@ -76,11 +91,18 @@ class GameState:
     robber_hex: str = ""
     robber_moved: bool = False
     resource_cards: List[ResourceCard] = field(default_factory=list)
+    grace_cards: List[GraceCard] = field(default_factory=list)
+    turn_number: int = 0
+    pending_road_building: int = 0
+    grace_card_used_this_turn: bool = False
     road_pieces: List[RoadPiece] = field(default_factory=list)
     settlement_pieces: List[SettlementPiece] = field(default_factory=list)
     city_pieces: List[CityPiece] = field(default_factory=list)
     longest_road_player: Optional[int] = None
     longest_road_length: int = 0
+    largest_army_player: Optional[int] = None
+    largest_army_count: int = 0
+    pending_robber_move: bool = False
     winner: Optional[int] = None
     last_burst: Dict[int, int] = field(default_factory=dict)  # player_idx -> cards lost
     pending_discards: Dict[int, int] = field(default_factory=dict)  # player_idx -> cards to discard
@@ -217,11 +239,70 @@ class GameState:
                 honor += 2
         if self.longest_road_player == player_idx:
             honor += 2
+        if self.largest_army_player == player_idx:
+            honor += 2
+        for c in self.grace_cards:
+            if c.type == "honor" and c.holder == f"player_{player_idx}":
+                honor += 1
         return honor
 
-    def recalculate_honor(self):
-        for i, player in enumerate(self.players):
-            player.honor = self.get_honor(i)
+    def knight_played_count(self, player_idx: int) -> int:
+        return sum(1 for c in self.grace_cards
+                   if c.type == "knight" and c.face_up and c.holder == f"player_{player_idx}")
+
+    def update_largest_army(self):
+        best_player = None
+        best_count = max(self.largest_army_count, 2)  # 初回取得は3枚以上 (> 2)
+
+        for i in range(len(self.players)):
+            count = self.knight_played_count(i)
+            if count >= 3 and count > best_count:
+                best_count = count
+                best_player = i
+
+        if best_player is not None and best_player != self.largest_army_player:
+            old_holder = self.largest_army_player
+            self.largest_army_player = best_player
+            self.largest_army_count = best_count
+            if old_holder is not None:
+                self.add_log(f"{self.players[best_player].name} takes Largest Army from {self.players[old_holder].name}!")
+            else:
+                self.add_log(f"{self.players[best_player].name} claims Largest Army ({best_count} knights)!")
+
+    # --- GraceCard 操作 ---
+
+    def grace_deck_count(self) -> int:
+        return sum(1 for c in self.grace_cards if c.holder == "deck")
+
+    def player_grace_cards(self, player_idx: int) -> List[GraceCard]:
+        return [c for c in self.grace_cards if c.holder == f"player_{player_idx}"]
+
+    def end_game(self, winner: int):
+        self.winner = winner
+        self.phase = "ended"
+        self.add_log(f"{self.players[winner].name} wins!")
+
+    def use_grace_card(self, player_idx: int, card_type: str) -> Optional[GraceCard]:
+        """手札から指定タイプのカードを1枚使用（face_up = True）。"""
+        card = next(
+            (c for c in self.grace_cards
+             if c.holder == f"player_{player_idx}" and c.type == card_type and not c.face_up),
+            None
+        )
+        if card:
+            card.face_up = True
+            self.grace_card_used_this_turn = True
+        return card
+
+    def draw_grace_card(self, player_idx: int) -> Optional[GraceCard]:
+        deck = [c for c in self.grace_cards if c.holder == "deck"]
+        if not deck:
+            return None
+        card = random.choice(deck)
+        card.holder = f"player_{player_idx}"
+        card.purchased_turn = self.turn_number
+        return card
+
 
     def is_vertex_valid_for_settlement(self, vertex_id: str, player_idx: int, setup: bool = False) -> bool:
         if vertex_id not in self.board.vertices:
@@ -321,9 +402,8 @@ class GameState:
                 self.add_log(f"{self.players[best_player].name} claims Longest Road ({best_length} roads)!")
 
     def check_winner(self) -> Optional[int]:
-        self.recalculate_honor()
-        for i, player in enumerate(self.players):
-            if player.honor >= 10:
+        for i in range(len(self.players)):
+            if self.get_honor(i) >= 10:
                 return i
         return None
 
@@ -352,19 +432,33 @@ class GameState:
             "bank": {r: self.bank_stock(r) for r in RESOURCE_TYPES},
             "longest_road_player": self.longest_road_player,
             "longest_road_length": self.longest_road_length,
+            "largest_army_player": self.largest_army_player,
+            "largest_army_count": self.largest_army_count,
+            "pending_robber_move": self.pending_robber_move,
             "winner": self.winner,
             "log": self.log,
             "last_settlement_placed": self.last_settlement_placed,
             "last_burst": {str(k): v for k, v in self.last_burst.items()},
             "pending_discards": {str(k): v for k, v in self.pending_discards.items()},
             "robber_victims": self.robber_victims,
+            "grace_deck_count": self.grace_deck_count(),
+            "grace_cards_by_player": {
+                str(i): [
+                    {"type": c.type, "face_up": c.face_up, "purchased_turn": c.purchased_turn}
+                    for c in self.player_grace_cards(i)
+                ]
+                for i in range(len(self.players))
+            },
+            "turn_number": self.turn_number,
+            "pending_road_building": self.pending_road_building,
+            "grace_card_used_this_turn": self.grace_card_used_this_turn,
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> 'GameState':
         board = Board.from_dict(data['board'])
         players = [Player(name=p['name'], color=p['color'],
-                          honor=p['honor'], ready=p['ready'])
+                          ready=p['ready'])
                    for p in data['players']]
         n = len(players)
 
@@ -380,6 +474,25 @@ class GameState:
             for resource, count in res_dict.items():
                 for _ in range(count):
                     resource_cards.append(ResourceCard(resource, holder))
+
+        # GraceCardを再構築
+        grace_cards = []
+        for pidx_str, cards in data.get('grace_cards_by_player', {}).items():
+            pidx = int(pidx_str)
+            for c in cards:
+                grace_cards.append(GraceCard(
+                    type=c['type'],
+                    holder=f"player_{pidx}",
+                    face_up=c['face_up'],
+                    purchased_turn=c['purchased_turn'],
+                ))
+        # デッキ残枚数を復元
+        held_counts = {t: 0 for t in GRACE_CARD_COUNTS}
+        for c in grace_cards:
+            held_counts[c.type] = held_counts.get(c.type, 0) + 1
+        for t, total in GRACE_CARD_COUNTS.items():
+            for _ in range(total - held_counts.get(t, 0)):
+                grace_cards.append(GraceCard(type=t, holder="deck"))
 
         # コマを再構築
         road_pieces = [RoadPiece(i) for i in range(n) for _ in range(ROAD_LIMIT)]
@@ -413,11 +526,18 @@ class GameState:
             robber_hex=data['robber_hex'],
             robber_moved=data['robber_moved'],
             resource_cards=resource_cards,
+            grace_cards=grace_cards,
+            turn_number=data.get('turn_number', 0),
+            pending_road_building=data.get('pending_road_building', 0),
+            grace_card_used_this_turn=data.get('grace_card_used_this_turn', False),
             road_pieces=road_pieces,
             settlement_pieces=settlement_pieces,
             city_pieces=city_pieces,
             longest_road_player=data.get('longest_road_player'),
             longest_road_length=data.get('longest_road_length', 0),
+            largest_army_player=data.get('largest_army_player'),
+            largest_army_count=data.get('largest_army_count', 0),
+            pending_robber_move=data.get('pending_robber_move', False),
             winner=data.get('winner'),
             log=data.get('log', []),
             last_settlement_placed=data.get('last_settlement_placed'),
@@ -450,6 +570,8 @@ def setup_game(state: GameState):
     state.setup_step = "settlement"
     state.current_player_idx = 0
     state.resource_cards = [ResourceCard(r, "bank") for r in RESOURCE_TYPES for _ in range(RESOURCE_CARD_LIMIT)]
+    state.grace_cards = [GraceCard(t, "deck") for t, n in GRACE_CARD_COUNTS.items() for _ in range(n)]
+    state.turn_number = 0
     state.road_pieces = [RoadPiece(i) for i in range(n) for _ in range(ROAD_LIMIT)]
     state.settlement_pieces = [SettlementPiece(i) for i in range(n) for _ in range(SETTLEMENT_LIMIT)]
     state.city_pieces = [CityPiece(i) for i in range(n) for _ in range(CITY_LIMIT)]
