@@ -22,6 +22,7 @@ RESOURCE_CARD_LIMIT = 19
 
 GRACE_CARD_COUNTS = {
     "honor": 5,
+    "knight": 14,
     "road_building": 2,
     "monopoly": 2,
     "year_of_plenty": 2,
@@ -37,7 +38,7 @@ class ResourceCard:
 
 @dataclass
 class GraceCard:
-    type: str           # "honor" | (future: "knight" | "road_building" | "year_of_plenty" | "monopoly")
+    type: str           # "honor" | "knight" | "road_building" | "year_of_plenty" | "monopoly"
     holder: str         # "deck" | "player_0" | "player_1" | ...
     face_up: bool = False
     purchased_turn: int = -1  # -1 = まだデッキ内
@@ -99,6 +100,9 @@ class GameState:
     city_pieces: List[CityPiece] = field(default_factory=list)
     longest_road_player: Optional[int] = None
     longest_road_length: int = 0
+    largest_army_player: Optional[int] = None
+    largest_army_count: int = 0
+    pending_robber_move: bool = False
     winner: Optional[int] = None
     last_burst: Dict[int, int] = field(default_factory=dict)  # player_idx -> cards lost
     pending_discards: Dict[int, int] = field(default_factory=dict)  # player_idx -> cards to discard
@@ -235,10 +239,35 @@ class GameState:
                 honor += 2
         if self.longest_road_player == player_idx:
             honor += 2
+        if self.largest_army_player == player_idx:
+            honor += 2
         for c in self.grace_cards:
             if c.type == "honor" and c.holder == f"player_{player_idx}":
                 honor += 1
         return honor
+
+    def knight_played_count(self, player_idx: int) -> int:
+        return sum(1 for c in self.grace_cards
+                   if c.type == "knight" and c.face_up and c.holder == f"player_{player_idx}")
+
+    def update_largest_army(self):
+        best_player = None
+        best_count = max(self.largest_army_count, 2)  # 初回取得は3枚以上 (> 2)
+
+        for i in range(len(self.players)):
+            count = self.knight_played_count(i)
+            if count >= 3 and count > best_count:
+                best_count = count
+                best_player = i
+
+        if best_player is not None and best_player != self.largest_army_player:
+            old_holder = self.largest_army_player
+            self.largest_army_player = best_player
+            self.largest_army_count = best_count
+            if old_holder is not None:
+                self.add_log(f"{self.players[best_player].name} takes Largest Army from {self.players[old_holder].name}!")
+            else:
+                self.add_log(f"{self.players[best_player].name} claims Largest Army ({best_count} knights)!")
 
     # --- GraceCard 操作 ---
 
@@ -403,6 +432,9 @@ class GameState:
             "bank": {r: self.bank_stock(r) for r in RESOURCE_TYPES},
             "longest_road_player": self.longest_road_player,
             "longest_road_length": self.longest_road_length,
+            "largest_army_player": self.largest_army_player,
+            "largest_army_count": self.largest_army_count,
+            "pending_robber_move": self.pending_robber_move,
             "winner": self.winner,
             "log": self.log,
             "last_settlement_placed": self.last_settlement_placed,
@@ -503,6 +535,9 @@ class GameState:
             city_pieces=city_pieces,
             longest_road_player=data.get('longest_road_player'),
             longest_road_length=data.get('longest_road_length', 0),
+            largest_army_player=data.get('largest_army_player'),
+            largest_army_count=data.get('largest_army_count', 0),
+            pending_robber_move=data.get('pending_robber_move', False),
             winner=data.get('winner'),
             log=data.get('log', []),
             last_settlement_placed=data.get('last_settlement_placed'),

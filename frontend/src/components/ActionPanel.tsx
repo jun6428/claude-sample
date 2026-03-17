@@ -89,7 +89,8 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
   const isMyTurn = myPlayerIdx !== null && current_player_idx === myPlayerIdx;
   const myResources = resources[String(myPlayerIdx)] || {};
   const diceTotal = dice_values[0] + dice_values[1];
-  const needsRobberMove = dice_rolled && diceTotal === 7 && !gameState.robber_moved && Object.keys(gameState.pending_discards).length === 0;
+  const needsRobberMove = gameState.pending_robber_move ||
+    (dice_rolled && diceTotal === 7 && !gameState.robber_moved && Object.keys(gameState.pending_discards).length === 0);
 
   // 港のレートを計算
   const myTradeRatios = React.useMemo(() => {
@@ -225,6 +226,21 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
 
       {isMyTurn && (
         <>
+          {/* Knight card - usable before or after dice roll */}
+          {!gameState.grace_card_used_this_turn && !gameState.pending_robber_move && (() => {
+            const myGraceCards = (gameState.grace_cards_by_player?.[String(myPlayerIdx)] ?? []).filter(c => !c.face_up);
+            const usableKnights = myGraceCards.filter(c => c.type === 'knight' && c.purchased_turn !== gameState.turn_number);
+            if (usableKnights.length === 0) return null;
+            return (
+              <button
+                onClick={() => sendAction({ action: 'use_knight' })}
+                className="w-full text-left text-sm py-1.5 px-3 rounded bg-red-800 hover:bg-red-700 text-white transition-colors"
+              >
+                ⚔️ 騎士カードを使う（×{usableKnights.length}）
+              </button>
+            );
+          })()}
+
           {/* Dice */}
           {!dice_rolled && (
             <button
@@ -248,7 +264,9 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
           {/* Robber move instruction */}
           {needsRobberMove && (
             <div className="bg-red-900 rounded p-2">
-              <p className="text-red-200 text-sm font-bold">7が出た！ロバーを移動してください</p>
+              <p className="text-red-200 text-sm font-bold">
+                {gameState.pending_robber_move ? '⚔️ 騎士発動！ロバーを移動してください' : '7が出た！ロバーを移動してください'}
+              </p>
               <p className="text-red-300 text-xs">別のタイルをクリック</p>
             </div>
           )}

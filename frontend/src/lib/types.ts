@@ -71,6 +71,9 @@ export interface GameState {
   resources: Record<string, Record<ResourceType, number>>;
   longest_road_player: number | null;
   longest_road_length: number;
+  largest_army_player: number | null;
+  largest_army_count: number;
+  pending_robber_move: boolean;
   winner: number | null;
   log: string[];
   bank: Record<ResourceType, number>;
@@ -98,6 +101,7 @@ function calcBaseHonor(playerIdx: number, gameState: GameState): number {
     }
   }
   if (gameState.longest_road_player === playerIdx) honor += 2;
+  if (gameState.largest_army_player === playerIdx) honor += 2;
   return honor;
 }
 
@@ -127,6 +131,7 @@ export type GameAction =
   | { action: 'steal_from'; target_player_idx: number }
   | { action: 'end_turn' }
   | { action: 'buy_grace_card' }
+  | { action: 'use_knight' }
   | { action: 'use_road_building' }
   | { action: 'use_monopoly'; resource: ResourceType }
   | { action: 'use_year_of_plenty'; resource1: ResourceType; resource2: ResourceType }

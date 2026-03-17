@@ -43,7 +43,7 @@ function groupCards(cards: { type: string; face_up: boolean }[]): { type: string
 
 
 export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: PlayerPanelProps) {
-  const { players, current_player_idx, resources, phase, longest_road_player } = gameState;
+  const { players, current_player_idx, resources, phase, longest_road_player, largest_army_player } = gameState;
   const [discardSelection, setDiscardSelection] = useState<Partial<Record<ResourceType, number>>>({});
 
   const myPendingDiscard = myPlayerIdx !== null
@@ -84,6 +84,11 @@ export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: Play
                 {longest_road_player === idx && (
                   <span className="text-xs bg-purple-600 text-white px-1 rounded" title="最長道路">
                     🛣️
+                  </span>
+                )}
+                {largest_army_player === idx && (
+                  <span className="text-xs bg-red-700 text-white px-1 rounded" title="最大騎士力">
+                    ⚔️
                   </span>
                 )}
                 <span className="text-yellow-400 font-bold text-sm">
