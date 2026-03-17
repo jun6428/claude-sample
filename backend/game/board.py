@@ -50,10 +50,18 @@ HEX_DIRECTIONS = [
     (-1, 0), (-1, 1), (0, 1)
 ]
 
-# Pointy-top hex vertex offsets (normalized, multiplied by hex_size later)
-# Vertices are indexed 0-5 going clockwise from top-left
-VERTEX_ANGLE_OFFSETS = [
-    (-30 + 60 * i) for i in range(6)
+# Vertex canonicalization: vertex i of hex (q, r) maps to type A or B of a canonical hex.
+# Pointy-top hex vertices 0-5 go clockwise starting from upper-right (-30°).
+# Each vertex is shared by up to 3 hexes; we pick the canonical (dq, dr, type) offset.
+#   Type A = upper-right vertex (angle -30°) of canonical hex
+#   Type B = lower-right vertex (angle  30°) of canonical hex
+VERTEX_CANONICAL = [
+    ( 0,  0, 'A'),  # v0 → vA of (q,   r  )
+    ( 0,  0, 'B'),  # v1 → vB of (q,   r  )
+    (-1,  1, 'A'),  # v2 → vA of (q-1, r+1)
+    (-1,  0, 'B'),  # v3 → vB of (q-1, r  )
+    (-1,  0, 'A'),  # v4 → vA of (q-1, r  )
+    ( 0, -1, 'B'),  # v5 → vB of (q,   r-1)
 ]
 
 
@@ -66,22 +74,14 @@ def hex_to_pixel(q: int, r: int, size: float = 60.0) -> Tuple[float, float]:
 
 def vertex_pixel(cx: float, cy: float, i: int, size: float = 60.0) -> Tuple[float, float]:
     """Get pixel position of vertex i of a hex centered at (cx, cy)."""
-    angle_deg = 60 * i - 30
-    angle_rad = math.pi / 180 * angle_deg
-    vx = cx + size * math.cos(angle_rad)
-    vy = cy + size * math.sin(angle_rad)
-    return vx, vy
+    angle_rad = math.pi / 180 * (60 * i - 30)
+    return cx + size * math.cos(angle_rad), cy + size * math.sin(angle_rad)
 
 
-def round_vertex(x: float, y: float, precision: int = 4) -> Tuple[float, float]:
-    """Round vertex coordinates for consistent ID generation."""
-    return round(x, precision), round(y, precision)
-
-
-def vertex_id_from_coords(x: float, y: float) -> str:
-    """Generate a unique vertex ID from pixel coordinates."""
-    rx, ry = round_vertex(x, y)
-    return f"v_{rx}_{ry}"
+def vertex_id_from_axial(q: int, r: int, i: int) -> str:
+    """Generate a unique vertex ID from axial hex coords and vertex index."""
+    dq, dr, t = VERTEX_CANONICAL[i]
+    return f"v{t}_{q + dq}_{r + dr}"
 
 
 def edge_id_from_vertices(v1_id: str, v2_id: str) -> str:
@@ -151,10 +151,10 @@ class Board:
             cx, cy = hex_to_pixel(h.q, h.r, hex_size)
             vids = []
             for i in range(6):
-                vx, vy = vertex_pixel(cx, cy, i, hex_size)
-                vid = vertex_id_from_coords(vx, vy)
+                vid = vertex_id_from_axial(h.q, h.r, i)
                 vids.append(vid)
-                vertex_positions[vid] = (vx, vy)
+                if vid not in vertex_positions:
+                    vertex_positions[vid] = vertex_pixel(cx, cy, i, hex_size)
                 if vid not in vertex_to_hexes:
                     vertex_to_hexes[vid] = []
                 vertex_to_hexes[vid].append(h.hex_id)
