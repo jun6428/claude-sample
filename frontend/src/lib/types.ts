@@ -85,7 +85,13 @@ export interface GameState {
   turn_number: number;
   pending_road_building: number;
   grace_card_used_this_turn: boolean;
-  chat_log: { player_idx: number; name: string; message: string }[];
+  chat_log: { player_idx: number; name: string; message: string; log_offset: number }[];
+  trade_offer: {
+    offerer_idx: number;
+    give: Partial<Record<ResourceType, number>>;
+    want: Partial<Record<ResourceType, number>>;
+    responses: Record<string, 'accept' | 'reject'>;
+  } | null;
 }
 
 export interface WebSocketMessage {
@@ -137,7 +143,11 @@ export type GameAction =
   | { action: 'use_monopoly'; resource: ResourceType }
   | { action: 'use_year_of_plenty'; resource1: ResourceType; resource2: ResourceType }
   | { action: 'debug_add_resource'; resource: ResourceType }
-  | { action: 'chat'; message: string };
+  | { action: 'chat'; message: string }
+  | { action: 'propose_trade'; give: Partial<Record<ResourceType, number>>; want: Partial<Record<ResourceType, number>> }
+  | { action: 'respond_trade'; response: 'accept' | 'reject' }
+  | { action: 'confirm_trade'; target_player_idx: number }
+  | { action: 'cancel_trade' };
 
 export const RESOURCE_COLORS: Record<string, string> = {
   wood: '#228B22',

@@ -45,6 +45,14 @@ class GraceCard:
 
 
 @dataclass
+class TradeOffer:
+    offerer_idx: int
+    give: Dict[str, int]   # resource -> count (offerer gives)
+    want: Dict[str, int]   # resource -> count (offerer wants)
+    responses: Dict[int, str] = field(default_factory=dict)  # player_idx -> 'accept'|'reject'
+
+
+@dataclass
 class RoadPiece:
     player_idx: int
     location: Optional[str] = None  # None=手元, edge_id=配置済み
@@ -110,6 +118,7 @@ class GameState:
     log: List[str] = field(default_factory=list)
     chat_log: List[Dict] = field(default_factory=list)  # {player_idx, name, message}
     last_settlement_placed: Optional[str] = None
+    trade_offer: Optional[TradeOffer] = None
 
     def add_log(self, message: str):
         self.log.append(message)
@@ -440,6 +449,12 @@ class GameState:
             "log": self.log,
             "chat_log": self.chat_log,
             "last_settlement_placed": self.last_settlement_placed,
+            "trade_offer": {
+                "offerer_idx": self.trade_offer.offerer_idx,
+                "give": self.trade_offer.give,
+                "want": self.trade_offer.want,
+                "responses": {str(k): v for k, v in self.trade_offer.responses.items()},
+            } if self.trade_offer else None,
             "last_burst": {str(k): v for k, v in self.last_burst.items()},
             "pending_discards": {str(k): v for k, v in self.pending_discards.items()},
             "robber_victims": self.robber_victims,
@@ -547,6 +562,12 @@ class GameState:
             last_burst={int(k): v for k, v in data.get('last_burst', {}).items()},
             pending_discards={int(k): v for k, v in data.get('pending_discards', {}).items()},
             robber_victims=data.get('robber_victims', []),
+            trade_offer=TradeOffer(
+                offerer_idx=data['trade_offer']['offerer_idx'],
+                give=data['trade_offer']['give'],
+                want=data['trade_offer']['want'],
+                responses={int(k): v for k, v in data['trade_offer']['responses'].items()},
+            ) if data.get('trade_offer') else None,
         )
 
 
