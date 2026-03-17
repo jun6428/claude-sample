@@ -5,7 +5,7 @@ from fastapi import WebSocket
 
 from .state import (
     GameState, Player, create_game_state, setup_game,
-    PLAYER_COLORS, RESOURCE_TYPES, BUILD_COSTS
+    PLAYER_COLORS, RESOURCE_TYPES, BUILD_COSTS, GRACE_CARD_COST
 )
 
 
@@ -111,6 +111,8 @@ class ConnectionManager:
             await self._handle_steal_from(game_id, player_idx, websocket, state, data)
         elif action == "end_turn":
             await self._handle_end_turn(game_id, player_idx, websocket, state)
+        elif action == "buy_grace_card":
+            await self._handle_buy_grace_card(game_id, player_idx, websocket, state)
         elif action == "debug_add_resource":
             resource = data.get("resource")
             if resource not in RESOURCE_TYPES:
@@ -478,9 +480,7 @@ class ConnectionManager:
 
         winner = state.check_winner()
         if winner is not None:
-            state.winner = winner
-            state.phase = "ended"
-            state.add_log(f"{state.players[winner].name} wins!")
+            state.end_game(winner)
 
         await self.broadcast_state(game_id)
 
@@ -520,9 +520,7 @@ class ConnectionManager:
 
         winner = state.check_winner()
         if winner is not None:
-            state.winner = winner
-            state.phase = "ended"
-            state.add_log(f"{state.players[winner].name} wins!")
+            state.end_game(winner)
 
         await self.broadcast_state(game_id)
 
@@ -568,9 +566,7 @@ class ConnectionManager:
 
         winner = state.check_winner()
         if winner is not None:
-            state.winner = winner
-            state.phase = "ended"
-            state.add_log(f"{state.players[winner].name} wins!")
+            state.end_game(winner)
 
         await self.broadcast_state(game_id)
 
@@ -612,6 +608,33 @@ class ConnectionManager:
 
         await self.broadcast_state(game_id)
 
+    async def _handle_buy_grace_card(self, game_id: str, player_idx: int, websocket: WebSocket, state: GameState):
+        if state.phase != "playing":
+            await self.send_error(websocket, "Not in playing phase")
+            return
+        if state.current_player_idx != player_idx:
+            await self.send_error(websocket, "Not your turn")
+            return
+        if not state.dice_rolled:
+            await self.send_error(websocket, "Must roll dice first")
+            return
+        if state.grace_deck_count() == 0:
+            await self.send_error(websocket, "No grace cards left in deck")
+            return
+        if not state.can_afford(player_idx, GRACE_CARD_COST):
+            await self.send_error(websocket, "Cannot afford grace card (need 1 wheat + 1 sheep + 1 ore)")
+            return
+
+        state.pay_cost(player_idx, GRACE_CARD_COST)
+        card = state.draw_grace_card(player_idx)
+        state.add_log(f"{state.players[player_idx].name} received a grace card.")
+
+        winner = state.check_winner()
+        if winner is not None:
+            state.end_game(winner)
+
+        await self.broadcast_state(game_id)
+
     async def _handle_end_turn(self, game_id: str, player_idx: int, websocket: WebSocket, state: GameState):
         if state.phase != "playing":
             await self.send_error(websocket, "Not in playing phase")
@@ -628,6 +651,7 @@ class ConnectionManager:
 
         n = len(state.players)
         state.current_player_idx = (state.current_player_idx + 1) % n
+        state.turn_number += 1
         state.dice_rolled = False
         state.dice_values = (0, 0)
         state.robber_moved = False

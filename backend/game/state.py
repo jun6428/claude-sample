@@ -20,11 +20,24 @@ SETTLEMENT_LIMIT = 5
 CITY_LIMIT = 4
 RESOURCE_CARD_LIMIT = 19
 
+GRACE_CARD_COUNTS = {
+    "honor": 5,
+}
+GRACE_CARD_COST = {"wheat": 1, "sheep": 1, "ore": 1}
+
 
 @dataclass
 class ResourceCard:
     resource: str  # "wood" | "brick" | "sheep" | "wheat" | "ore"
     holder: str    # "bank" | "player_0" | "player_1" | ...
+
+
+@dataclass
+class GraceCard:
+    type: str           # "honor" | (future: "knight" | "road_building" | "year_of_plenty" | "monopoly")
+    holder: str         # "deck" | "player_0" | "player_1" | ...
+    face_up: bool = False
+    purchased_turn: int = -1  # -1 = まだデッキ内
 
 
 @dataclass
@@ -74,6 +87,8 @@ class GameState:
     robber_hex: str = ""
     robber_moved: bool = False
     resource_cards: List[ResourceCard] = field(default_factory=list)
+    grace_cards: List[GraceCard] = field(default_factory=list)
+    turn_number: int = 0
     road_pieces: List[RoadPiece] = field(default_factory=list)
     settlement_pieces: List[SettlementPiece] = field(default_factory=list)
     city_pieces: List[CityPiece] = field(default_factory=list)
@@ -215,7 +230,36 @@ class GameState:
                 honor += 2
         if self.longest_road_player == player_idx:
             honor += 2
+        for c in self.grace_cards:
+            if c.type == "honor" and c.holder == f"player_{player_idx}":
+                honor += 1
         return honor
+
+    # --- GraceCard 操作 ---
+
+    def grace_deck_count(self) -> int:
+        return sum(1 for c in self.grace_cards if c.holder == "deck")
+
+    def player_grace_cards(self, player_idx: int) -> List[GraceCard]:
+        return [c for c in self.grace_cards if c.holder == f"player_{player_idx}"]
+
+    def end_game(self, winner: int):
+        """ゲーム終了処理：勝者をセットし全発展カードを表にする。"""
+        self.winner = winner
+        self.phase = "ended"
+        for c in self.grace_cards:
+            if c.holder != "deck":
+                c.face_up = True
+        self.add_log(f"{self.players[winner].name} wins!")
+
+    def draw_grace_card(self, player_idx: int) -> Optional[GraceCard]:
+        deck = [c for c in self.grace_cards if c.holder == "deck"]
+        if not deck:
+            return None
+        card = random.choice(deck)
+        card.holder = f"player_{player_idx}"
+        card.purchased_turn = self.turn_number
+        return card
 
 
     def is_vertex_valid_for_settlement(self, vertex_id: str, player_idx: int, setup: bool = False) -> bool:
@@ -352,6 +396,15 @@ class GameState:
             "last_burst": {str(k): v for k, v in self.last_burst.items()},
             "pending_discards": {str(k): v for k, v in self.pending_discards.items()},
             "robber_victims": self.robber_victims,
+            "grace_deck_count": self.grace_deck_count(),
+            "grace_cards_by_player": {
+                str(i): [
+                    {"type": c.type, "face_up": c.face_up, "purchased_turn": c.purchased_turn}
+                    for c in self.player_grace_cards(i)
+                ]
+                for i in range(len(self.players))
+            },
+            "turn_number": self.turn_number,
         }
 
     @classmethod
@@ -374,6 +427,25 @@ class GameState:
             for resource, count in res_dict.items():
                 for _ in range(count):
                     resource_cards.append(ResourceCard(resource, holder))
+
+        # GraceCardを再構築
+        grace_cards = []
+        for pidx_str, cards in data.get('grace_cards_by_player', {}).items():
+            pidx = int(pidx_str)
+            for c in cards:
+                grace_cards.append(GraceCard(
+                    type=c['type'],
+                    holder=f"player_{pidx}",
+                    face_up=c['face_up'],
+                    purchased_turn=c['purchased_turn'],
+                ))
+        # デッキ残枚数を復元
+        held_counts = {t: 0 for t in GRACE_CARD_COUNTS}
+        for c in grace_cards:
+            held_counts[c.type] = held_counts.get(c.type, 0) + 1
+        for t, total in GRACE_CARD_COUNTS.items():
+            for _ in range(total - held_counts.get(t, 0)):
+                grace_cards.append(GraceCard(type=t, holder="deck"))
 
         # コマを再構築
         road_pieces = [RoadPiece(i) for i in range(n) for _ in range(ROAD_LIMIT)]
@@ -407,6 +479,8 @@ class GameState:
             robber_hex=data['robber_hex'],
             robber_moved=data['robber_moved'],
             resource_cards=resource_cards,
+            grace_cards=grace_cards,
+            turn_number=data.get('turn_number', 0),
             road_pieces=road_pieces,
             settlement_pieces=settlement_pieces,
             city_pieces=city_pieces,
@@ -444,6 +518,8 @@ def setup_game(state: GameState):
     state.setup_step = "settlement"
     state.current_player_idx = 0
     state.resource_cards = [ResourceCard(r, "bank") for r in RESOURCE_TYPES for _ in range(RESOURCE_CARD_LIMIT)]
+    state.grace_cards = [GraceCard(t, "deck") for t, n in GRACE_CARD_COUNTS.items() for _ in range(n)]
+    state.turn_number = 0
     state.road_pieces = [RoadPiece(i) for i in range(n) for _ in range(ROAD_LIMIT)]
     state.settlement_pieces = [SettlementPiece(i) for i in range(n) for _ in range(SETTLEMENT_LIMIT)]
     state.city_pieces = [CityPiece(i) for i in range(n) for _ in range(CITY_LIMIT)]

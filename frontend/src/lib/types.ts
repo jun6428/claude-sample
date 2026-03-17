@@ -77,6 +77,9 @@ export interface GameState {
   last_burst: Record<string, number>;
   pending_discards: Record<string, number>;
   robber_victims: number[];
+  grace_deck_count: number;
+  grace_cards_by_player: Record<string, { type: string; face_up: boolean; purchased_turn: number }[]>;
+  turn_number: number;
 }
 
 export interface WebSocketMessage {
@@ -85,7 +88,7 @@ export interface WebSocketMessage {
   message?: string;
 }
 
-export function calculateHonor(playerIdx: number, gameState: GameState): number {
+function calcBaseHonor(playerIdx: number, gameState: GameState): number {
   let honor = 0;
   for (const building of Object.values(gameState.buildings)) {
     if (building.player_idx === playerIdx) {
@@ -94,6 +97,17 @@ export function calculateHonor(playerIdx: number, gameState: GameState): number 
   }
   if (gameState.longest_road_player === playerIdx) honor += 2;
   return honor;
+}
+
+/** 自分視点：honorカード含む全GP */
+export function calculateHonor(playerIdx: number, gameState: GameState): number {
+  const graceCards = gameState.grace_cards_by_player?.[String(playerIdx)] ?? [];
+  return calcBaseHonor(playerIdx, gameState) + graceCards.filter(c => c.type === 'honor').length;
+}
+
+/** 他人視点：honorカード非公開（建物・最長道路のみ） */
+export function calculateVisibleHonor(playerIdx: number, gameState: GameState): number {
+  return calcBaseHonor(playerIdx, gameState);
 }
 
 export type GameAction =
@@ -110,6 +124,7 @@ export type GameAction =
   | { action: 'discard_resources'; resources: Partial<Record<ResourceType, number>> }
   | { action: 'steal_from'; target_player_idx: number }
   | { action: 'end_turn' }
+  | { action: 'buy_grace_card' }
   | { action: 'debug_add_resource'; resource: ResourceType };
 
 export const RESOURCE_COLORS: Record<string, string> = {

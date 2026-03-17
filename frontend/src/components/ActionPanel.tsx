@@ -260,6 +260,36 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
             </div>
           )}
 
+          {/* Grace cards */}
+          {dice_rolled && !needsRobberMove && gameState.robber_victims.length === 0 && (() => {
+            const canBuyGrace = (myResources['wheat'] ?? 0) >= 1 && (myResources['sheep'] ?? 0) >= 1 && (myResources['ore'] ?? 0) >= 1;
+            const deckCount = gameState.grace_deck_count ?? 0;
+            const myGraceCards = gameState.grace_cards_by_player?.[String(myPlayerIdx)] ?? [];
+            return (
+              <div>
+                <p className="text-gray-400 text-xs font-bold uppercase tracking-wide mb-1.5">発展カード</p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => sendAction({ action: 'buy_grace_card' })}
+                    disabled={!canBuyGrace || deckCount === 0}
+                    className={`flex flex-col items-center gap-1 py-2 px-3 rounded transition-colors ${
+                      canBuyGrace && deckCount > 0
+                        ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                        : 'bg-gray-900 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    <span className="text-base leading-none">✨</span>
+                    <span className="text-xs leading-none opacity-70">🌾🐑⛰️</span>
+                  </button>
+                  <span className="text-gray-400 text-xs">残り {deckCount} 枚</span>
+                  {myGraceCards.length > 0 && (
+                    <span className="text-yellow-300 text-xs">手札: {myGraceCards.length} 枚</span>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Bank trade */}
           {dice_rolled && !needsRobberMove && gameState.robber_victims.length === 0 && (
             <div>

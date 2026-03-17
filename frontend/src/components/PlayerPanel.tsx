@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { GameState, GameAction, PLAYER_COLOR_MAP, RESOURCE_LABELS, RESOURCE_COLORS, RESOURCE_EMOJI, ResourceType, HONOR_LABEL, calculateHonor } from '@/lib/types';
+import { GameState, GameAction, PLAYER_COLOR_MAP, RESOURCE_LABELS, RESOURCE_COLORS, RESOURCE_EMOJI, ResourceType, HONOR_LABEL, calculateHonor, calculateVisibleHonor } from '@/lib/types';
 
 interface PlayerPanelProps {
   gameState: GameState;
@@ -57,7 +57,7 @@ export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: Play
                   </span>
                 )}
                 <span className="text-yellow-400 font-bold text-sm">
-                  {calculateHonor(idx, gameState)} {HONOR_LABEL}
+                  {isMe ? calculateHonor(idx, gameState) : calculateVisibleHonor(idx, gameState)} {HONOR_LABEL}
                 </span>
               </div>
             </div>
@@ -81,6 +81,23 @@ export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: Play
                     );
                   })}
                 </div>
+                {(() => {
+                  const myGraceCards = gameState.grace_cards_by_player?.[String(idx)] ?? [];
+                  if (myGraceCards.length === 0) return null;
+                  return (
+                    <div className="mt-2">
+                      <p className="text-gray-500 text-xs mb-1">発展カード</p>
+                      <div className="flex flex-wrap gap-1">
+                        {myGraceCards.map((card, i) => (
+                          <div key={i} className="flex flex-col items-center justify-center w-10 h-14 rounded border border-yellow-600 bg-gray-800 text-center">
+                            <span className="text-base leading-none">⭐</span>
+                            <span className="text-yellow-300 text-xs leading-tight mt-0.5">得点</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
                 {myPendingDiscard > 0 && (() => {
                   const selectedTotal = Object.values(discardSelection).reduce((s, n) => s + (n ?? 0), 0);
                   const remaining = myPendingDiscard - selectedTotal;
@@ -127,14 +144,36 @@ export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: Play
               </>
             ) : (() => {
               const theirPending = gameState.pending_discards?.[String(idx)] ?? 0;
+              const theirGraceCount = (gameState.grace_cards_by_player?.[String(idx)] ?? []).length;
               return theirPending > 0 ? (
                 <div className="text-orange-400 text-xs mt-1 font-bold">
                   バースト — {theirPending}枚を選択中...
                 </div>
               ) : (
-                <div className="text-gray-400 text-xs mt-1">
-                  手札: {Object.values(playerResources).reduce((a: number, b) => a + (b as number), 0)} 枚
-                </div>
+                <>
+                  <div className="text-gray-400 text-xs mt-1">
+                    手札: {Object.values(playerResources).reduce((a: number, b) => a + (b as number), 0)} 枚
+                  </div>
+                  {theirGraceCount > 0 && (
+                    <div className="mt-2">
+                      <p className="text-gray-500 text-xs mb-1">発展カード</p>
+                      <div className="flex flex-wrap gap-1">
+                        {(gameState.grace_cards_by_player?.[String(idx)] ?? []).map((card, i) => (
+                          card.face_up ? (
+                            <div key={i} className="flex flex-col items-center justify-center w-10 h-14 rounded border border-yellow-600 bg-gray-800 text-center">
+                              <span className="text-base leading-none">⭐</span>
+                              <span className="text-yellow-300 text-xs leading-tight mt-0.5">得点</span>
+                            </div>
+                          ) : (
+                            <div key={i} className="flex flex-col items-center justify-center w-10 h-14 rounded border border-gray-600 bg-gray-900 text-center">
+                              <span className="text-gray-500 text-lg leading-none">🂠</span>
+                            </div>
+                          )
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               );
             })()}
           </div>
