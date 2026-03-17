@@ -326,6 +326,7 @@ class ConnectionManager:
                     state.pending_discards[i] = to_discard
                     state.add_log(f"{player.name} must discard {to_discard} resources.")
             if not state.pending_discards:
+                state.pending_robber_move = True
                 state.add_log(f"{state.players[player_idx].name} must move the robber.")
         else:
             # Distribute resources
@@ -388,6 +389,7 @@ class ConnectionManager:
 
         # If all discards done, prompt robber move
         if not state.pending_discards:
+            state.pending_robber_move = True
             state.add_log(f"{state.players[state.current_player_idx].name} must move the robber.")
 
         await self.broadcast_state(game_id)
@@ -484,7 +486,7 @@ class ConnectionManager:
         if not state.dice_rolled:
             await self.send_error(websocket, "Must roll dice first")
             return
-        if sum(state.dice_values) == 7 and state.robber_hex == "":
+        if state.pending_robber_move or state.pending_discards:
             await self.send_error(websocket, "Must move robber first")
             return
 
@@ -507,8 +509,9 @@ class ConnectionManager:
         road_piece = state.supply_piece(player_idx, "road")
         if not road_piece:
             if free_build:
+                remaining = state.pending_road_building
                 state.pending_road_building = 0
-                state.add_log(f"{state.players[player_idx].name} has no road pieces left.")
+                state.add_log(f"{state.players[player_idx].name} has no road pieces left (forfeiting {remaining} free road(s)).")
                 await self.broadcast_state(game_id)
             else:
                 await self.send_error(websocket, "No road pieces left")
@@ -537,6 +540,9 @@ class ConnectionManager:
             return
         if not state.dice_rolled:
             await self.send_error(websocket, "Must roll dice first")
+            return
+        if state.pending_robber_move or state.pending_discards:
+            await self.send_error(websocket, "Must move robber first")
             return
 
         vertex_id = data.get("vertex_id")
@@ -577,6 +583,9 @@ class ConnectionManager:
             return
         if not state.dice_rolled:
             await self.send_error(websocket, "Must roll dice first")
+            return
+        if state.pending_robber_move or state.pending_discards:
+            await self.send_error(websocket, "Must move robber first")
             return
 
         vertex_id = data.get("vertex_id")
@@ -623,6 +632,9 @@ class ConnectionManager:
             return
         if not state.dice_rolled:
             await self.send_error(websocket, "Must roll dice first")
+            return
+        if state.pending_robber_move or state.pending_discards:
+            await self.send_error(websocket, "Must move robber first")
             return
 
         give_res = data.get("give")
@@ -705,7 +717,7 @@ class ConnectionManager:
         if state.grace_card_used_this_turn:
             await self.send_error(websocket, "Already used a grace card this turn")
             return
-        if state.pending_robber_move:
+        if state.pending_robber_move or state.pending_discards:
             await self.send_error(websocket, "Must move robber first")
             return
         has_card = any(
