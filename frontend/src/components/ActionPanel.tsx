@@ -81,7 +81,7 @@ function MonopolySelector({ disabled, onSelect }: { disabled: boolean; onSelect:
   );
 }
 
-function TradePanel({ gameState, myPlayerIdx, sendAction }: { gameState: GameState; myPlayerIdx: number; sendAction: (a: GameAction) => void }) {
+function TradePanel({ gameState, myPlayerIdx, sendAction, open }: { gameState: GameState; myPlayerIdx: number; sendAction: (a: GameAction) => void; open: boolean }) {
   const [give, setGive] = React.useState<Partial<Record<ResourceType, number>>>({});
   const [want, setWant] = React.useState<Partial<Record<ResourceType, number>>>({});
   const myResources = gameState.resources[String(myPlayerIdx)] || {};
@@ -143,10 +143,8 @@ function TradePanel({ gameState, myPlayerIdx, sendAction }: { gameState: GameSta
 
   // 現在プレイヤー視点：オファー作成 or 確定
   return (
-    <div className="space-y-2">
-      <p className="text-gray-400 text-xs font-bold uppercase tracking-wide">プレイヤー間取引</p>
-
-      {/* 提示中のオファー */}
+    <div className="space-y-1.5">
+      {/* 提示中のオファー（常時表示） */}
       {offer && isMyOffer && (
         <div className="bg-gray-700 rounded p-2 space-y-1">
           <p className="text-xs text-yellow-300">オファー提示中...</p>
@@ -179,8 +177,8 @@ function TradePanel({ gameState, myPlayerIdx, sendAction }: { gameState: GameSta
         </div>
       )}
 
-      {/* 新規オファー作成 */}
-      {!offer && (
+      {/* 新規オファー作成（トグルで展開） */}
+      {!offer && open && (
         <div className="bg-gray-700 rounded p-2 space-y-2">
           {(['give', 'want'] as const).map(side => (
             <div key={side}>
@@ -214,6 +212,7 @@ function TradePanel({ gameState, myPlayerIdx, sendAction }: { gameState: GameSta
   );
 }
 
+
 export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: ActionPanelProps) {
   const { phase, current_player_idx, dice_rolled, dice_values, setup_step, players, resources } = gameState;
   const selectedAction = useGameStore((s) => s.selectedAction);
@@ -223,7 +222,8 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
 
   const [tradeGive, setTradeGive] = useState<ResourceType>('wood');
   const [tradeReceive, setTradeReceive] = useState<ResourceType>('brick');
-  const [showTrade, setShowTrade] = useState(false);
+  const [showBankTrade, setShowBankTrade] = useState(false);
+  const [showPlayerTrade, setShowPlayerTrade] = useState(false);
 
   const isMyTurn = myPlayerIdx !== null && current_player_idx === myPlayerIdx;
   const myResources = resources[String(myPlayerIdx)] || {};
@@ -541,22 +541,33 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
             );
           })()}
 
-          {/* Player trade */}
-          {dice_rolled && !needsRobberMove && gameState.robber_victims.length === 0 && myPlayerIdx !== null && (
-            <TradePanel gameState={gameState} myPlayerIdx={myPlayerIdx} sendAction={sendAction} />
-          )}
-
-          {/* Bank trade */}
+          {/* 交易 */}
           {canAct && (
-            <div>
-              <button
-                onClick={() => setShowTrade(!showTrade)}
-                className="w-full text-left text-sm py-2 px-3 rounded bg-gray-700 hover:bg-gray-600 text-white transition-colors"
-              >
-                🏦 銀行と交換
-              </button>
-              {showTrade && (
-                <div className="mt-2 bg-gray-900 rounded p-3 space-y-2">
+            <div className="relative">
+              <p className="text-gray-400 text-xs font-bold uppercase tracking-wide mb-1.5">交易</p>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => { setShowBankTrade(o => !o); setShowPlayerTrade(false); }}
+                  className={`flex flex-col items-center gap-1 py-2 px-3 rounded transition-colors ${showBankTrade ? 'bg-yellow-500 text-gray-900 font-bold' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}
+                >
+                  <span className="text-base leading-none">🚢</span>
+                  <span className="text-xs leading-none opacity-70">海外</span>
+                </button>
+                <button
+                  onClick={() => { setShowPlayerTrade(o => !o); setShowBankTrade(false); }}
+                  className={`flex flex-col items-center gap-1 py-2 px-3 rounded transition-colors ${showPlayerTrade ? 'bg-yellow-500 text-gray-900 font-bold' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}
+                >
+                  <span className="text-base leading-none">🤝</span>
+                  <span className="text-xs leading-none opacity-70">交渉</span>
+                </button>
+              </div>
+              {showBankTrade && (
+                <div className="absolute bottom-full left-0 right-0 z-10 mb-1 bg-gray-900 border border-orange-500 rounded-lg shadow-xl overflow-hidden">
+                  <div className="bg-gray-700 px-3 py-1.5 text-xs text-gray-300 font-medium flex items-center justify-between">
+                    <span>交易 › 海外</span>
+                    <button onClick={() => setShowBankTrade(false)} className="text-gray-400 hover:text-white leading-none">✕</button>
+                  </div>
+                  <div className="p-3 space-y-2">
                   <div className="flex gap-2 items-center">
                     <label className="text-gray-300 text-xs w-10">渡す:</label>
                     <select
@@ -595,13 +606,25 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
                   <button
                     onClick={() => {
                       sendAction({ action: 'trade_bank', give: tradeGive, receive: tradeReceive });
-                      setShowTrade(false);
+                      setShowBankTrade(false);
                     }}
                     disabled={(myResources[tradeGive] || 0) < (myTradeRatios[tradeGive] ?? 4)}
                     className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white text-xs font-bold py-1 rounded transition-colors"
                   >
                     交換実行 ({RESOURCE_LABELS[tradeGive]}×{myTradeRatios[tradeGive] ?? 4} → {RESOURCE_LABELS[tradeReceive]}×1)
                   </button>
+                </div>
+                </div>
+              )}
+              {(showPlayerTrade || gameState.trade_offer?.offerer_idx === myPlayerIdx) && myPlayerIdx !== null && (
+                <div className="absolute bottom-full left-0 right-0 z-10 mb-1 bg-gray-900 border border-orange-500 rounded-lg shadow-xl overflow-hidden">
+                  <div className="bg-gray-700 px-3 py-1.5 text-xs text-gray-300 font-medium flex items-center justify-between">
+                    <span>交易 › 交渉</span>
+                    <button onClick={() => setShowPlayerTrade(false)} className="text-gray-400 hover:text-white leading-none">✕</button>
+                  </div>
+                  <div className="p-3">
+                    <TradePanel gameState={gameState} myPlayerIdx={myPlayerIdx} sendAction={sendAction} open={showPlayerTrade} />
+                  </div>
                 </div>
               )}
             </div>
