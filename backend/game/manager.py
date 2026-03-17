@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Any
 from fastapi import WebSocket
 
 from .state import (
-    GameState, Player, create_game_state, setup_game,
+    GameState, Player, TradeOffer, create_game_state, setup_game,
     PLAYER_COLORS, RESOURCE_TYPES, BUILD_COSTS, GRACE_CARD_COST
 )
 
@@ -123,6 +123,14 @@ class ConnectionManager:
             await self._handle_buy_grace_card(game_id, player_idx, websocket, state)
         elif action == "chat":
             await self._handle_chat(game_id, player_idx, websocket, state, data)
+        elif action == "propose_trade":
+            await self._handle_propose_trade(game_id, player_idx, websocket, state, data)
+        elif action == "respond_trade":
+            await self._handle_respond_trade(game_id, player_idx, websocket, state, data)
+        elif action == "confirm_trade":
+            await self._handle_confirm_trade(game_id, player_idx, websocket, state, data)
+        elif action == "cancel_trade":
+            await self._handle_cancel_trade(game_id, player_idx, websocket, state)
         elif action == "debug_add_resource":
             resource = data.get("resource")
             if resource not in RESOURCE_TYPES:
@@ -793,8 +801,98 @@ class ConnectionManager:
         state.last_burst = {}
         state.pending_discards = {}
         state.robber_victims = []
+        state.trade_offer = None
         state.add_log(f"{state.players[state.current_player_idx].name}'s turn. Roll the dice!")
 
+        await self.broadcast_state(game_id)
+
+    async def _handle_propose_trade(self, game_id: str, player_idx: int, websocket: WebSocket, state: GameState, data: dict):
+        if state.phase != "playing":
+            await self.send_error(websocket, "Not in playing phase")
+            return
+        if state.current_player_idx != player_idx:
+            await self.send_error(websocket, "Not your turn")
+            return
+        if not state.dice_rolled:
+            await self.send_error(websocket, "Must roll dice first")
+            return
+        if state.robber_victims or state.pending_discards:
+            await self.send_error(websocket, "Cannot trade now")
+            return
+
+        give = {r: int(v) for r, v in data.get("give", {}).items() if r in RESOURCE_TYPES and int(v) > 0}
+        want = {r: int(v) for r, v in data.get("want", {}).items() if r in RESOURCE_TYPES and int(v) > 0}
+        if not give or not want:
+            await self.send_error(websocket, "Invalid trade offer")
+            return
+        for r, v in give.items():
+            if state.player_resources(player_idx).get(r, 0) < v:
+                await self.send_error(websocket, f"Not enough {r}")
+                return
+
+        state.trade_offer = TradeOffer(offerer_idx=player_idx, give=give, want=want)
+        await self.broadcast_state(game_id)
+
+    async def _handle_respond_trade(self, game_id: str, player_idx: int, websocket: WebSocket, state: GameState, data: dict):
+        if not state.trade_offer:
+            await self.send_error(websocket, "No active trade offer")
+            return
+        if player_idx == state.trade_offer.offerer_idx:
+            await self.send_error(websocket, "Cannot respond to your own offer")
+            return
+        response = data.get("response")
+        if response not in ("accept", "reject"):
+            await self.send_error(websocket, "Invalid response")
+            return
+        state.trade_offer.responses[player_idx] = response
+        await self.broadcast_state(game_id)
+
+    async def _handle_confirm_trade(self, game_id: str, player_idx: int, websocket: WebSocket, state: GameState, data: dict):
+        if not state.trade_offer:
+            await self.send_error(websocket, "No active trade offer")
+            return
+        if state.current_player_idx != player_idx or player_idx != state.trade_offer.offerer_idx:
+            await self.send_error(websocket, "Not your offer")
+            return
+        target_idx = data.get("target_player_idx")
+        if target_idx is None or state.trade_offer.responses.get(target_idx) != "accept":
+            await self.send_error(websocket, "Target player has not accepted")
+            return
+
+        give = state.trade_offer.give
+        want = state.trade_offer.want
+
+        # 双方の手持ちを再検証
+        for r, v in give.items():
+            if state.player_resources(player_idx).get(r, 0) < v:
+                await self.send_error(websocket, f"Offerer no longer has enough {r}")
+                return
+        for r, v in want.items():
+            if state.player_resources(target_idx).get(r, 0) < v:
+                await self.send_error(websocket, f"Target no longer has enough {r}")
+                return
+
+        # 交換実行
+        for r, v in give.items():
+            state.transfer_between_players(r, player_idx, target_idx, v)
+        for r, v in want.items():
+            state.transfer_between_players(r, target_idx, player_idx, v)
+
+        offerer_name = state.players[player_idx].name
+        target_name = state.players[target_idx].name
+        give_str = ", ".join(f"{r}×{v}" for r, v in give.items())
+        want_str = ", ".join(f"{r}×{v}" for r, v in want.items())
+        state.add_log(f"{offerer_name} traded {give_str} → {want_str} with {target_name}.")
+        state.trade_offer = None
+        await self.broadcast_state(game_id)
+
+    async def _handle_cancel_trade(self, game_id: str, player_idx: int, websocket: WebSocket, state: GameState):
+        if not state.trade_offer:
+            return
+        if player_idx != state.trade_offer.offerer_idx:
+            await self.send_error(websocket, "Not your offer")
+            return
+        state.trade_offer = None
         await self.broadcast_state(game_id)
 
 

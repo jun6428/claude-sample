@@ -81,6 +81,130 @@ function MonopolySelector({ disabled, onSelect }: { disabled: boolean; onSelect:
   );
 }
 
+function TradePanel({ gameState, myPlayerIdx, sendAction }: { gameState: GameState; myPlayerIdx: number; sendAction: (a: GameAction) => void }) {
+  const [give, setGive] = React.useState<Partial<Record<ResourceType, number>>>({});
+  const [want, setWant] = React.useState<Partial<Record<ResourceType, number>>>({});
+  const myResources = gameState.resources[String(myPlayerIdx)] || {};
+  const offer = gameState.trade_offer;
+  const isMyOffer = offer?.offerer_idx === myPlayerIdx;
+  const myResponse = offer?.responses[String(myPlayerIdx)];
+
+  const setCount = (side: 'give' | 'want', r: ResourceType, delta: number) => {
+    const setter = side === 'give' ? setGive : setWant;
+    setter(prev => {
+      const cur = prev[r] ?? 0;
+      const next = Math.max(0, cur + delta);
+      if (side === 'give') {
+        const max = myResources[r] ?? 0;
+        return { ...prev, [r]: Math.min(next, max) };
+      }
+      return { ...prev, [r]: next };
+    });
+  };
+
+  const canPropose = Object.values(give).some(v => (v ?? 0) > 0) && Object.values(want).some(v => (v ?? 0) > 0);
+  const acceptors = offer ? Object.entries(offer.responses).filter(([, v]) => v === 'accept').map(([k]) => Number(k)) : [];
+
+  // 他プレイヤー視点：オファーへの返答UI
+  if (offer && !isMyOffer) {
+    const offererName = gameState.players[offer.offerer_idx]?.name;
+    return (
+      <div className="bg-gray-700 rounded p-2 space-y-2">
+        <p className="text-xs text-yellow-300 font-bold">📦 {offererName} からの交換オファー</p>
+        <div className="flex gap-2 text-xs">
+          <div>
+            <span className="text-gray-400">渡す: </span>
+            {Object.entries(offer.give).map(([r, v]) => `${RESOURCE_EMOJI[r]}×${v}`).join(' ')}
+          </div>
+          <div>
+            <span className="text-gray-400">欲しい: </span>
+            {Object.entries(offer.want).map(([r, v]) => `${RESOURCE_EMOJI[r]}×${v}`).join(' ')}
+          </div>
+        </div>
+        {!myResponse ? (
+          <div className="flex gap-2">
+            <button onClick={() => sendAction({ action: 'respond_trade', response: 'accept' })}
+              className="flex-1 bg-green-700 hover:bg-green-600 text-white text-xs py-1 rounded">
+              ✓ 承諾
+            </button>
+            <button onClick={() => sendAction({ action: 'respond_trade', response: 'reject' })}
+              className="flex-1 bg-gray-600 hover:bg-gray-500 text-white text-xs py-1 rounded">
+              ✕ 拒否
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400">{myResponse === 'accept' ? '✓ 承諾済み' : '✕ 拒否済み'}</p>
+        )}
+      </div>
+    );
+  }
+
+  // 現在プレイヤー視点：オファー作成 or 確定
+  return (
+    <div className="space-y-2">
+      <p className="text-gray-400 text-xs font-bold uppercase tracking-wide">プレイヤー間取引</p>
+
+      {/* 提示中のオファー */}
+      {offer && isMyOffer && (
+        <div className="bg-gray-700 rounded p-2 space-y-1">
+          <p className="text-xs text-yellow-300">オファー提示中...</p>
+          {acceptors.length > 0 ? (
+            <div className="space-y-1">
+              <p className="text-xs text-green-400">承諾者:</p>
+              {acceptors.map(idx => (
+                <button key={idx}
+                  onClick={() => sendAction({ action: 'confirm_trade', target_player_idx: idx })}
+                  className="w-full text-xs bg-green-800 hover:bg-green-700 text-white py-1 rounded flex items-center gap-2 px-2">
+                  <span className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: PLAYER_COLOR_MAP[gameState.players[idx]?.color] }} />
+                  {gameState.players[idx]?.name} と確定
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-500">承諾待ち...</p>
+          )}
+          <button onClick={() => sendAction({ action: 'cancel_trade' })}
+            className="w-full text-xs text-gray-400 hover:text-gray-300 py-1">
+            取り下げ
+          </button>
+        </div>
+      )}
+
+      {/* 新規オファー作成 */}
+      {!offer && (
+        <div className="bg-gray-700 rounded p-2 space-y-2">
+          {(['give', 'want'] as const).map(side => (
+            <div key={side}>
+              <p className="text-xs text-gray-400 mb-1">{side === 'give' ? '渡す' : '欲しい'}</p>
+              <div className="flex flex-wrap gap-1">
+                {RESOURCE_TYPES.map(r => {
+                  const count = (side === 'give' ? give : want)[r] ?? 0;
+                  return (
+                    <div key={r} className="flex items-center gap-0.5">
+                      <button onClick={() => setCount(side, r, -1)} disabled={count === 0}
+                        className="w-4 h-4 text-xs bg-gray-600 hover:bg-gray-500 disabled:opacity-30 rounded text-white leading-none">-</button>
+                      <span className="text-xs w-5 text-center text-white">{RESOURCE_EMOJI[r]}{count > 0 ? `×${count}` : ''}</span>
+                      <button onClick={() => setCount(side, r, 1)}
+                        className="w-4 h-4 text-xs bg-gray-600 hover:bg-gray-500 rounded text-white leading-none">+</button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          <button
+            onClick={() => { sendAction({ action: 'propose_trade', give, want }); setGive({}); setWant({}); }}
+            disabled={!canPropose}
+            className="w-full text-xs bg-blue-700 hover:bg-blue-600 disabled:bg-gray-800 disabled:text-gray-600 text-white py-1 rounded">
+            オファーを提示
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: ActionPanelProps) {
   const { phase, current_player_idx, dice_rolled, dice_values, setup_step, players, resources } = gameState;
   const selectedAction = useGameStore((s) => s.selectedAction);
@@ -408,6 +532,11 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
             );
           })()}
 
+          {/* Player trade */}
+          {dice_rolled && !needsRobberMove && gameState.robber_victims.length === 0 && myPlayerIdx !== null && (
+            <TradePanel gameState={gameState} myPlayerIdx={myPlayerIdx} sendAction={sendAction} />
+          )}
+
           {/* Bank trade */}
           {canAct && (
             <div>
@@ -486,9 +615,14 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
       })()}
 
       {!isMyTurn && phase === 'playing' && (
-        <p className="text-gray-400 text-sm text-center py-2">
-          {players[current_player_idx]?.name} のターンを待っています...
-        </p>
+        <>
+          <p className="text-gray-400 text-sm text-center py-2">
+            {players[current_player_idx]?.name} のターンを待っています...
+          </p>
+          {gameState.trade_offer && myPlayerIdx !== null && gameState.trade_offer.offerer_idx !== myPlayerIdx && (
+            <TradePanel gameState={gameState} myPlayerIdx={myPlayerIdx} sendAction={sendAction} />
+          )}
+        </>
       )}
     </div>
   );
