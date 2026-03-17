@@ -123,7 +123,9 @@ async def main():
     # 6. スナップショット保存
     out_dir = os.path.join(os.path.dirname(__file__), "..", "snapshots")
     os.makedirs(out_dir, exist_ok=True)
-    out_path = os.path.join(out_dir, "setup-complete.json")
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%y%m%d%H%M%S")
+    out_path = os.path.join(out_dir, f"setup-complete-{timestamp}.json")
     with open(out_path, "w") as f:
         json.dump(state, f, indent=2, ensure_ascii=False)
     print(f"Snapshot saved: {out_path}")
