@@ -49,14 +49,14 @@ class CityPiece:
 class Player:
     name: str
     color: str
-    victory_points: int = 0
+    honor: int = 0
     ready: bool = False
 
     def to_dict(self) -> dict:
         return {
             "name": self.name,
             "color": self.color,
-            "victory_points": self.victory_points,
+            "honor": self.honor,
             "ready": self.ready,
         }
 
@@ -207,21 +207,21 @@ class GameState:
     def count_resources(self, player_idx: int) -> int:
         return sum(self.player_resources(player_idx).values())
 
-    def get_victory_points(self, player_idx: int) -> int:
-        vp = 0
+    def get_honor(self, player_idx: int) -> int:
+        honor = 0
         for p in self.settlement_pieces:
             if p.location and p.player_idx == player_idx:
-                vp += 1
+                honor += 1
         for p in self.city_pieces:
             if p.location and p.player_idx == player_idx:
-                vp += 2
+                honor += 2
         if self.longest_road_player == player_idx:
-            vp += 2
-        return vp
+            honor += 2
+        return honor
 
-    def recalculate_vp(self):
+    def recalculate_honor(self):
         for i, player in enumerate(self.players):
-            player.victory_points = self.get_victory_points(i)
+            player.honor = self.get_honor(i)
 
     def is_vertex_valid_for_settlement(self, vertex_id: str, player_idx: int, setup: bool = False) -> bool:
         if vertex_id not in self.board.vertices:
@@ -321,9 +321,9 @@ class GameState:
                 self.add_log(f"{self.players[best_player].name} claims Longest Road ({best_length} roads)!")
 
     def check_winner(self) -> Optional[int]:
-        self.recalculate_vp()
+        self.recalculate_honor()
         for i, player in enumerate(self.players):
-            if player.victory_points >= 10:
+            if player.honor >= 10:
                 return i
         return None
 
@@ -364,7 +364,7 @@ class GameState:
     def from_dict(cls, data: dict) -> 'GameState':
         board = Board.from_dict(data['board'])
         players = [Player(name=p['name'], color=p['color'],
-                          victory_points=p['victory_points'], ready=p['ready'])
+                          honor=p['honor'], ready=p['ready'])
                    for p in data['players']]
         n = len(players)
 

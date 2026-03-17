@@ -6,7 +6,7 @@ export type SetupStep = 'settlement' | 'road';
 export interface Player {
   name: string;
   color: string;
-  victory_points: number;
+  honor: number;
   ready: boolean;
 }
 
@@ -132,6 +132,8 @@ export const PORT_EMOJI: Record<string, string> = {
   ...RESOURCE_EMOJI,
   '3:1': '⚓',
 };
+
+export const HONOR_LABEL = 'GP';
 
 export const PLAYER_COLOR_MAP: Record<string, string> = {
   red: '#EF4444',

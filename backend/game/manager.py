@@ -474,7 +474,7 @@ class ConnectionManager:
         state.pay_cost(player_idx, cost)
         road_piece.location = edge_id
         state.update_longest_road()
-        state.recalculate_vp()
+        state.recalculate_honor()
         state.add_log(f"{state.players[player_idx].name} built a road.")
 
         winner = state.check_winner()
@@ -517,7 +517,7 @@ class ConnectionManager:
             return
         state.pay_cost(player_idx, cost)
         settlement_piece.location = vertex_id
-        state.recalculate_vp()
+        state.recalculate_honor()
         state.add_log(f"{state.players[player_idx].name} built a settlement.")
 
         winner = state.check_winner()
@@ -566,7 +566,7 @@ class ConnectionManager:
             return
         state.pay_cost(player_idx, cost)
         city_piece.location = vertex_id
-        state.recalculate_vp()
+        state.recalculate_honor()
         state.add_log(f"{state.players[player_idx].name} upgraded to a city.")
 
         winner = state.check_winner()

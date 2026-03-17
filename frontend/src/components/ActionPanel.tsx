@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { GameState, GameAction, ResourceType, BUILD_COSTS, RESOURCE_LABELS, PLAYER_COLOR_MAP } from '@/lib/types';
+import { GameState, GameAction, ResourceType, BUILD_COSTS, RESOURCE_LABELS, PLAYER_COLOR_MAP, HONOR_LABEL } from '@/lib/types';
 import { useGameStore } from '@/store/gameStore';
 
 interface ActionPanelProps {
@@ -128,7 +128,7 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
               🏆 {winner.name} の勝利!
             </p>
             <p className="text-gray-400 text-sm mb-4">
-              {winner.victory_points} VP
+              {winner.honor} {HONOR_LABEL}
             </p>
           </>
         )}
