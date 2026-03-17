@@ -32,3 +32,6 @@ out/
 # OS
 .DS_Store
 Thumbs.db
+
+# Snapshots
+snapshots/
