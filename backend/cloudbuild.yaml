@@ -18,3 +18,6 @@ steps:
 
 images:
   - 'asia-northeast1-docker.pkg.dev/m2st-net/cataso/backend'
+
+options:
+  defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
