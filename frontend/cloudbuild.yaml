@@ -16,7 +16,7 @@ steps:
       - 'run'
       - 'deploy'
       - 'cataso-frontend'
-      - '--image=asia-northeast1-docker.pkg.dev/m2st-net/cataso/frontend'
+      - '--image=asia-northeast1-docker.pkg.dev/m2st-net/cataso/frontend:latest'
       - '--region=asia-northeast1'
       - '--platform=managed'
 

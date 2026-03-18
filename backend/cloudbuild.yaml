@@ -12,7 +12,7 @@ steps:
       - 'run'
       - 'deploy'
       - 'cataso-backend'
-      - '--image=asia-northeast1-docker.pkg.dev/m2st-net/cataso/backend'
+      - '--image=asia-northeast1-docker.pkg.dev/m2st-net/cataso/backend:latest'
       - '--region=asia-northeast1'
       - '--platform=managed'
 
