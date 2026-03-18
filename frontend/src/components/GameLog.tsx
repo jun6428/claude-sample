@@ -78,9 +78,9 @@ export default function GameLog({ log, chatLog, myPlayerIdx, playerColors, onSen
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && submit()}
-            placeholder="メッセージを入力..."
+            placeholder="チャット入力..."
             maxLength={200}
-            className="flex-1 bg-gray-700 text-white text-xs rounded px-2 py-1 outline-none focus:ring-1 focus:ring-blue-500"
+            className="flex-1 min-w-0 bg-gray-700 text-white text-xs rounded px-2 py-1 outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-[9px]"
           />
           <button
             onClick={submit}

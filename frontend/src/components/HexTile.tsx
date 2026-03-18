@@ -10,6 +10,7 @@ interface HexTileProps {
   size: number;
   hasRobber: boolean;
   isHighlighted?: boolean;
+  invScale?: number;
   onClick?: () => void;
 }
 
@@ -25,7 +26,7 @@ function hexPoints(cx: number, cy: number, size: number): string {
   return points.join(' ');
 }
 
-export default function HexTile({ hex, cx, cy, size, hasRobber, isHighlighted, onClick }: HexTileProps) {
+export default function HexTile({ hex, cx, cy, size, hasRobber, isHighlighted, invScale = 1, onClick }: HexTileProps) {
   const fillColor = RESOURCE_COLORS[hex.resource] || '#ccc';
   const points = hexPoints(cx, cy, size);
   const label = RESOURCE_LABELS[hex.resource] || hex.resource;
@@ -53,7 +54,7 @@ export default function HexTile({ hex, cx, cy, size, hasRobber, isHighlighted, o
       </text>
       {/* Number token */}
       {hex.number !== null && (
-        <>
+        <g transform={`translate(${cx}, ${cy + 8}) scale(${invScale}) translate(${-cx}, ${-(cy + 8)})`}>
           <circle cx={cx} cy={cy + 8} r={14} fill="white" stroke="#ccc" strokeWidth={1} />
           <text
             x={cx}
@@ -82,7 +83,7 @@ export default function HexTile({ hex, cx, cy, size, hasRobber, isHighlighted, o
               hex.number === 5 || hex.number === 9 ? 4 : 5
             )}
           </text>
-        </>
+        </g>
       )}
       {/* Robber */}
       {hasRobber && (

@@ -27,6 +27,7 @@ export default function GamePage() {
   const [nameInput, setNameInput] = useState('');
   const [resolvedPlayerName, setResolvedPlayerName] = useState(playerName);
   const [isReady, setIsReady] = useState(false);
+  const [boardCssScale, setBoardCssScale] = useState(1);
 
   // If arrived directly (no name in store), show name prompt
   useEffect(() => {
@@ -109,7 +110,7 @@ export default function GamePage() {
   );
 
   return (
-    <main className="min-h-screen bg-gray-900 flex flex-col">
+    <main className="h-screen bg-gray-900 flex flex-col">
       {/* Header */}
       <header className="bg-gray-800 border-b border-gray-700 px-4 py-2 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
@@ -142,7 +143,7 @@ export default function GamePage() {
       <div className="flex flex-1 overflow-hidden">
         {/* Left panel: online layer (log, dev) */}
         <div className="flex-shrink-0 bg-gray-900 border-r border-gray-700 flex flex-col overflow-hidden" style={{ width: 'min(18vw, 256px)' }}>
-          <div className="flex-1 overflow-y-auto p-3">
+          <div className="flex-1 overflow-hidden p-3">
             <GameLog
               log={log}
               chatLog={chat_log ?? []}
@@ -159,11 +160,11 @@ export default function GamePage() {
         </div>
 
         {/* Board - center */}
-        <div className="flex-1 overflow-auto bg-blue-950 flex items-center justify-center p-4 relative">
-          <div className="absolute top-4 left-4 z-10">
+        <div className="flex-1 overflow-hidden bg-blue-950 flex justify-center p-4 relative">
+          <div className="absolute top-4 left-4 z-10" style={{ transform: `scale(${boardCssScale})`, transformOrigin: 'top left' }}>
             <DiceDisplay diceRolled={gameState.dice_rolled} diceValues={gameState.dice_values} players={players} lastBurst={gameState.last_burst} />
           </div>
-          <div className="absolute top-4 right-4 z-10">
+          <div className="absolute top-4 right-4 z-10" style={{ transform: `scale(${boardCssScale})`, transformOrigin: 'top right' }}>
             <BankDisplay bank={gameState.bank} graceDeckCount={gameState.grace_deck_count} />
           </div>
           <Board
@@ -171,6 +172,7 @@ export default function GamePage() {
             myPlayerIdx={myPlayerIdx}
             sendAction={sendAction}
             selectedAction={selectedAction}
+            onScaleChange={setBoardCssScale}
           />
         </div>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { GameState, PLAYER_COLOR_MAP, RESOURCE_COLORS, RESOURCE_LABELS, PORT_EMOJI } from '@/lib/types';
 import HexTile from './HexTile';
 import { GameAction } from '@/lib/types';
@@ -20,9 +20,10 @@ interface BoardProps {
   myPlayerIdx: number | null;
   sendAction: (action: GameAction) => void;
   selectedAction: string | null;
+  onScaleChange?: (cssScale: number) => void;
 }
 
-export default function Board({ gameState, myPlayerIdx, sendAction, selectedAction }: BoardProps) {
+export default function Board({ gameState, myPlayerIdx, sendAction, selectedAction, onScaleChange }: BoardProps) {
   const { board, buildings, roads, robber_hex, phase, setup_step, current_player_idx } = gameState;
   const isMyTurn = myPlayerIdx !== null && current_player_idx === myPlayerIdx;
   const setSelectedAction = useGameStore((s) => s.setSelectedAction);
@@ -46,6 +47,24 @@ export default function Board({ gameState, myPlayerIdx, sendAction, selectedActi
   const svgHeight = maxY - minY + BOARD_PADDING * 2;
   const offsetX = -minX + BOARD_PADDING;
   const offsetY = -minY + BOARD_PADDING;
+
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [invScale, setInvScale] = useState(1);
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => {
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      if (w > 0 && h > 0) {
+        const cssScale = Math.min(w / svgWidth, h / svgHeight, 1);
+        setInvScale(cssScale > 0 ? 1 / cssScale : 1);
+        onScaleChange?.(cssScale);
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [svgWidth, svgHeight]);
 
   // Determine clickable vertices/edges/hexes
   const clickableVertices = useMemo(() => {
@@ -165,7 +184,7 @@ export default function Board({ gameState, myPlayerIdx, sendAction, selectedActi
   const showEdges = clickableEdges.size > 0 || Object.keys(roads).length > 0;
 
   return (
-    <div className="overflow-auto flex items-center justify-center">
+    <div ref={wrapperRef} className="w-full h-full overflow-hidden flex items-center justify-center">
       <svg
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
         width={svgWidth}
@@ -185,6 +204,7 @@ export default function Board({ gameState, myPlayerIdx, sendAction, selectedActi
                 size={HEX_SIZE}
                 hasRobber={robber_hex === hex.hex_id}
                 isHighlighted={clickableHexes.has(hex.hex_id)}
+                invScale={invScale}
 onClick={clickableHexes.has(hex.hex_id) ? () => handleHexClick(hex.hex_id) : undefined}
               />
             );
