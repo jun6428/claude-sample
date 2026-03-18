@@ -652,7 +652,7 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
             {players[current_player_idx]?.name} のターンを待っています...
           </p>
           {gameState.trade_offer && myPlayerIdx !== null && gameState.trade_offer.offerer_idx !== myPlayerIdx && (
-            <TradePanel gameState={gameState} myPlayerIdx={myPlayerIdx} sendAction={sendAction} />
+            <TradePanel gameState={gameState} myPlayerIdx={myPlayerIdx} sendAction={sendAction} open={true} />
           )}
         </>
       )}
