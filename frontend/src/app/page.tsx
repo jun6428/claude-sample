@@ -147,7 +147,7 @@ export default function HomePage() {
               <span className="text-yellow-600 font-bold mr-2">DEV MODE</span>
             )}
             {process.env.NEXT_PUBLIC_COMMIT_SHA
-              ? `v${process.env.NEXT_PUBLIC_COMMIT_SHA}`
+              ? `v0.0.1.${process.env.NEXT_PUBLIC_COMMIT_SHA}`
               : 'local'}
           </p>
         </div>
