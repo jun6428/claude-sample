@@ -141,7 +141,7 @@ export default function GamePage() {
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left panel: online layer (log, dev) */}
-        <div className="w-64 flex-shrink-0 bg-gray-900 border-r border-gray-700 flex flex-col overflow-hidden">
+        <div className="w-64 landscape:w-40 flex-shrink-0 bg-gray-900 border-r border-gray-700 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto p-3">
             <GameLog
               log={log}
@@ -175,7 +175,7 @@ export default function GamePage() {
         </div>
 
         {/* Right panel: catan layer (players, actions) */}
-        <div className="w-72 flex-shrink-0 bg-gray-900 border-l border-gray-700 flex flex-col overflow-hidden">
+        <div className="w-72 landscape:w-48 flex-shrink-0 bg-gray-900 border-l border-gray-700 flex flex-col overflow-hidden">
           <div className="flex-shrink-0 p-3 border-b border-gray-700">
             <PlayerPanel gameState={gameState} myPlayerIdx={myPlayerIdx} sendAction={sendAction} />
           </div>
