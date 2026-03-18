@@ -36,6 +36,49 @@ function StackedCard({ type, count }: { type: string; count: number }) {
   );
 }
 
+const CARD_W = 18;   // px: カード幅
+const CARD_H = 26;   // px: カード高さ
+const OVERLAP = 10;  // px: 重なり幅
+const MAX_VISIBLE = 8;
+
+/** 横に重なるカード列。face_up=trueなら絵柄表示、falseなら裏面 */
+function FanCards({ cards, backStyle = 'resource' }: { cards: { face_up: boolean; type?: string }[]; backStyle?: 'resource' | 'dev' }) {
+  const visible = cards.slice(0, MAX_VISIBLE);
+  const extra = cards.length - MAX_VISIBLE;
+  const totalW = visible.length > 0 ? CARD_W + (visible.length - 1) * (CARD_W - OVERLAP) : 0;
+  return (
+    <div className="flex items-center gap-1">
+      <div className="relative flex-shrink-0" style={{ width: totalW, height: CARD_H }}>
+        {visible.map((c, i) => {
+          const d = c.type ? (CARD_DISPLAY[c.type] ?? null) : null;
+          return (
+            <div
+              key={i}
+              className={`absolute flex flex-col items-center justify-center rounded border text-center overflow-hidden ${
+                c.face_up && d
+                  ? `${d.border} bg-gray-800`
+                  : backStyle === 'dev'
+                  ? 'border-black bg-gray-700'
+                  : 'border-gray-400 bg-gray-600'
+              }`}
+              style={{ width: CARD_W, height: CARD_H, left: i * (CARD_W - OVERLAP), zIndex: i }}
+            >
+              {c.face_up && d ? (
+                <span style={{ fontSize: 10 }}>{d.emoji}</span>
+              ) : (
+                <span className="text-gray-500" style={{ fontSize: 11 }}>🂠</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {extra > 0 && (
+        <span className="text-gray-400 text-xs">+{extra}</span>
+      )}
+    </div>
+  );
+}
+
 function groupCards(cards: { type: string; face_up: boolean }[]): { type: string; count: number }[] {
   const counts: Record<string, number> = {};
   for (const c of cards) counts[c.type] = (counts[c.type] ?? 0) + 1;
@@ -53,7 +96,7 @@ export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: Play
 
   return (
     <div className="flex flex-col gap-2">
-      <h2 className="text-lg font-bold text-white mb-1">プレイヤー</h2>
+
       {players.map((player, idx) => {
         const isCurrentTurn = phase !== 'lobby' && phase !== 'ended' && current_player_idx === idx;
         const isMe = myPlayerIdx === idx;
@@ -188,58 +231,45 @@ export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: Play
               </>
             ) : (() => {
               const theirPending = gameState.pending_discards?.[String(idx)] ?? 0;
-              const theirGraceCount = (gameState.grace_cards_by_player?.[String(idx)] ?? []).length;
-              return theirPending > 0 ? (
-                <div className="text-orange-400 text-xs mt-1 font-bold">
-                  バースト — {theirPending}枚を選択中...
-                </div>
-              ) : (
-                <>
-                  <div className="text-gray-400 text-xs mt-1">
-                    手札: {Object.values(playerResources).reduce((a: number, b) => a + (b as number), 0)} 枚
-                  </div>
-                  {theirGraceCount > 0 && (
-                    <div className="mt-2">
-
-                      <div className="flex flex-wrap gap-1">
-                        {phase === 'ended' ? (
-                          groupCards(gameState.grace_cards_by_player?.[String(idx)] ?? []).map(({ type, count }) => (
-                            <StackedCard key={type} type={type} count={count} />
-                          ))
-                        ) : (() => {
-                          const cards = gameState.grace_cards_by_player?.[String(idx)] ?? [];
-                          const revealed = cards.filter(c => c.face_up);
-                          const hidden = cards.filter(c => !c.face_up);
-                          return (
-                            <div className="flex justify-between gap-2 w-full">
-                              <div className="flex flex-wrap gap-1">
-                                {hidden.length > 0 && (
-                                  <div className="relative">
-                                    <div className="flex flex-col items-center justify-center w-10 h-14 rounded border border-gray-600 bg-gray-900 text-center">
-                                      <span className="text-gray-500 text-lg leading-none">🂠</span>
-                                    </div>
-                                    {hidden.length > 1 && (
-                                      <span className="absolute -top-1 -right-1 bg-gray-600 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center leading-none">
-                                        {hidden.length}
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                              {revealed.length > 0 && (
-                                <div className="flex flex-wrap gap-1 justify-end opacity-40">
-                                  {groupCards(revealed).map(({ type, count }) => (
-                                    <StackedCard key={`revealed-${type}`} type={type} count={count} />
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })()}
-                      </div>
+              const resourceCount = Object.values(playerResources).reduce((a: number, b) => a + (b as number), 0);
+              const graceCards = gameState.grace_cards_by_player?.[String(idx)] ?? [];
+              // 資源を裏面カードとして展開
+              const resourceFan = Array.from({ length: resourceCount }, () => ({ face_up: false }));
+              // 発展カード（ゲーム終了時は全公開）
+              const graceFan = phase === 'ended'
+                ? graceCards.map(c => ({ face_up: true, type: c.type }))
+                : graceCards.map(c => ({ face_up: c.face_up, type: c.type }));
+              const allCards = [...resourceFan, ...graceFan];
+              return (
+                <div className="mt-1.5 flex flex-col gap-1">
+                  {theirPending > 0 && (
+                    <div className="text-orange-400 text-xs font-bold">
+                      バースト — {theirPending}枚を選択中...
                     </div>
                   )}
-                </>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 text-xs w-6 flex-shrink-0">資源</span>
+                    {resourceFan.length > 0
+                      ? <FanCards cards={resourceFan} backStyle="resource" />
+                      : <span className="text-gray-600 text-xs">なし</span>
+                    }
+                  </div>
+                  {graceFan.length > 0 && (() => {
+                    const unused = graceFan.filter(c => !c.face_up);
+                    const used = graceFan.filter(c => c.face_up);
+                    return (
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 text-xs w-6 flex-shrink-0">発展</span>
+                        {unused.length > 0 && <FanCards cards={unused} backStyle="dev" />}
+                        {used.length > 0 && (
+                          <div className="opacity-70">
+                            <FanCards cards={used} backStyle="dev" />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
               );
             })()}
           </div>
