@@ -349,9 +349,9 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
   // Playing phase
   return (
     <div className="bg-gray-800 rounded-lg p-4 space-y-3">
-      <h2 className="text-white font-bold">
-        {isMyTurn ? 'あなたのターン' : `${players[current_player_idx]?.name} のターン`}
-      </h2>
+      {!isMyTurn && (
+        <h2 className="text-white font-bold">{players[current_player_idx]?.name} のターン</h2>
+      )}
 
       {/* Error messages */}
       {errors.length > 0 && (
@@ -435,7 +435,7 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
                 {([
                   { key: 'build_road',       emoji: '🛣️', cost: '🌲🧱' },
                   { key: 'build_settlement', emoji: '🏠', cost: '🌲🧱🐑🌾' },
-                  { key: 'build_city',       emoji: '🏰', cost: '🌾🌾⛰️⛰️⛰️' },
+                  { key: 'build_city',       emoji: '🏗️', cost: '🌾2 ⛰️3' },
                 ] as const).map(({ key, emoji, cost }) => {
                   const type = key.replace('build_', '') as 'road' | 'settlement' | 'city';
                   const active = selectedAction === key;
@@ -445,7 +445,7 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
                       key={key}
                       onClick={() => setSelectedAction(active ? null : key)}
                       disabled={!affordable}
-                      className={`flex flex-col items-center gap-1 py-2 px-1 rounded transition-colors ${
+                      className={`flex flex-col items-center gap-2 py-2 px-1 rounded transition-colors ${
                         active
                           ? 'bg-yellow-500 text-gray-900 font-bold'
                           : affordable
@@ -476,7 +476,7 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
             const deckCount = gameState.grace_deck_count ?? 0;
             return (
               <div>
-                <p className="text-gray-400 text-xs font-bold uppercase tracking-wide mb-1.5">発展カードを引く</p>
+                <p className="text-gray-400 text-xs font-bold uppercase tracking-wide mb-1.5">発展カード</p>
                 <button
                   onClick={() => sendAction({ action: 'buy_grace_card' })}
                   disabled={!canBuyGrace || deckCount === 0}
@@ -508,7 +508,7 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
               }`;
             return (
               <div>
-                <p className="text-gray-400 text-xs font-bold uppercase tracking-wide mb-1.5">発展カードを使う</p>
+                <p className="text-gray-400 text-xs font-bold uppercase tracking-wide mb-1.5">カードを使う</p>
                 <div className="flex flex-wrap gap-1.5">
                   {(preDice || canAct) && (
                     <button
