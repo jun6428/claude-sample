@@ -1,0 +1,20 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'asia-northeast1-docker.pkg.dev/m2st-net/cataso/backend'
+      - 'backend'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    args:
+      - 'gcloud'
+      - 'run'
+      - 'deploy'
+      - 'cataso-backend'
+      - '--image=asia-northeast1-docker.pkg.dev/m2st-net/cataso/backend'
+      - '--region=asia-northeast1'
+      - '--platform=managed'
+
+images:
+  - 'asia-northeast1-docker.pkg.dev/m2st-net/cataso/backend'

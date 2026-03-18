@@ -1,0 +1,24 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_API_URL=https://api-cataso.m2st.org'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_WS_URL=wss://api-cataso.m2st.org'
+      - '-t'
+      - 'asia-northeast1-docker.pkg.dev/m2st-net/cataso/frontend'
+      - 'frontend'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    args:
+      - 'gcloud'
+      - 'run'
+      - 'deploy'
+      - 'cataso-frontend'
+      - '--image=asia-northeast1-docker.pkg.dev/m2st-net/cataso/frontend'
+      - '--region=asia-northeast1'
+      - '--platform=managed'
+
+images:
+  - 'asia-northeast1-docker.pkg.dev/m2st-net/cataso/frontend'
