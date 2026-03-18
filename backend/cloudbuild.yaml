@@ -7,14 +7,15 @@ steps:
       - 'backend'
 
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: bash
     args:
-      - 'gcloud'
-      - 'run'
-      - 'deploy'
-      - 'cataso-backend'
-      - '--image=asia-northeast1-docker.pkg.dev/m2st-net/cataso/backend:latest'
-      - '--region=asia-northeast1'
-      - '--platform=managed'
+      - '-c'
+      - |
+        DIGEST=$(gcloud artifacts docker images describe asia-northeast1-docker.pkg.dev/m2st-net/cataso/backend:latest --format="value(image_summary.digest)")
+        gcloud run deploy cataso-backend \
+          --image=asia-northeast1-docker.pkg.dev/m2st-net/cataso/backend@$$DIGEST \
+          --region=asia-northeast1 \
+          --platform=managed
 
 images:
   - 'asia-northeast1-docker.pkg.dev/m2st-net/cataso/backend'
