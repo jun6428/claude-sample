@@ -151,9 +151,11 @@ export default function GamePage() {
               onSendChat={(msg) => sendAction({ action: 'chat', message: msg })}
             />
           </div>
+          {process.env.NEXT_PUBLIC_DEV_MODE === 'true' && (
           <div className="flex-shrink-0 p-3 border-t border-gray-700">
             <DevPanel sendAction={sendAction} />
           </div>
+          )}
         </div>
 
         {/* Board - center */}
