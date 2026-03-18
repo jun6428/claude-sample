@@ -42,13 +42,16 @@ const OVERLAP = 10;  // px: 重なり幅
 const MAX_VISIBLE = 8;
 
 /** 横に重なるカード列。face_up=trueなら絵柄表示、falseなら裏面 */
-function FanCards({ cards, backStyle = 'resource' }: { cards: { face_up: boolean; type?: string }[]; backStyle?: 'resource' | 'dev' }) {
+function FanCards({ cards, backStyle = 'resource', size = 'md' }: { cards: { face_up: boolean; type?: string }[]; backStyle?: 'resource' | 'dev'; size?: 'sm' | 'md' }) {
+  const w = size === 'sm' ? 12 : CARD_W;
+  const h = size === 'sm' ? 18 : CARD_H;
+  const overlap = size === 'sm' ? 7 : OVERLAP;
   const visible = cards.slice(0, MAX_VISIBLE);
   const extra = cards.length - MAX_VISIBLE;
-  const totalW = visible.length > 0 ? CARD_W + (visible.length - 1) * (CARD_W - OVERLAP) : 0;
+  const totalW = visible.length > 0 ? w + (visible.length - 1) * (w - overlap) : 0;
   return (
     <div className="flex items-center gap-1">
-      <div className="relative flex-shrink-0" style={{ width: totalW, height: CARD_H }}>
+      <div className="relative flex-shrink-0" style={{ width: totalW, height: h }}>
         {visible.map((c, i) => {
           const d = c.type ? (CARD_DISPLAY[c.type] ?? null) : null;
           return (
@@ -61,7 +64,7 @@ function FanCards({ cards, backStyle = 'resource' }: { cards: { face_up: boolean
                   ? 'border-black bg-gray-700'
                   : 'border-gray-400 bg-gray-600'
               }`}
-              style={{ width: CARD_W, height: CARD_H, left: i * (CARD_W - OVERLAP), zIndex: i }}
+              style={{ width: w, height: h, left: i * (w - overlap), zIndex: i }}
             >
               {c.face_up && d ? (
                 <span style={{ fontSize: 10 }}>{d.emoji}</span>
@@ -95,7 +98,7 @@ export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: Play
     : 0;
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-1">
 
       {players.map((player, idx) => {
         const isCurrentTurn = phase !== 'lobby' && phase !== 'ended' && current_player_idx === idx;
@@ -106,19 +109,19 @@ export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: Play
         return (
           <div
             key={idx}
-            className={`rounded-lg p-3 border-2 transition-all ${
-              isCurrentTurn
-                ? 'border-yellow-400 bg-gray-700 shadow-lg shadow-yellow-400/20'
-                : 'border-gray-600 bg-gray-800'
+            className={`transition-all ${
+              isMe
+                ? `rounded-lg p-3 border-2 ${isCurrentTurn ? 'border-yellow-400 bg-gray-700 shadow-lg shadow-yellow-400/20' : 'border-gray-600 bg-gray-800'}`
+                : `py-1 border-t rounded ${isCurrentTurn ? 'border-yellow-400/50 bg-yellow-400/20' : 'border-gray-700'}`
             }`}
           >
-            <div className="flex items-center justify-between mb-1">
+            <div className={`flex items-center justify-between ${isMe ? 'mb-1' : 'mb-0'}`}>
               <div className="flex items-center gap-2">
                 <div
                   className="w-3 h-3 rounded-full flex-shrink-0"
                   style={{ backgroundColor: playerColor }}
                 />
-                <span className={`font-bold text-sm ${isMe ? 'text-yellow-300' : 'text-white'}`}>
+                <span className={`font-bold ${isMe ? 'text-sm text-yellow-300' : 'text-xs text-white'}`}>
                   {player.name}
                   {isMe && ' (あなた)'}
                   {isCurrentTurn && ' ▶'}
@@ -241,7 +244,7 @@ export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: Play
                 : graceCards.map(c => ({ face_up: c.face_up, type: c.type }));
               const allCards = [...resourceFan, ...graceFan];
               return (
-                <div className="mt-1.5 flex flex-col gap-1">
+                <div className="mt-1 flex flex-col gap-0.5">
                   {theirPending > 0 && (
                     <div className="text-orange-400 text-xs font-bold">
                       バースト — {theirPending}枚を選択中...
@@ -250,7 +253,7 @@ export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: Play
                   <div className="flex items-center gap-2">
                     <span className="text-gray-500 text-xs w-6 flex-shrink-0">資源</span>
                     {resourceFan.length > 0
-                      ? <FanCards cards={resourceFan} backStyle="resource" />
+                      ? <><FanCards cards={resourceFan} backStyle="resource" size="sm" /><span className="text-gray-400 text-xs ml-1">{resourceCount}</span></>
                       : <span className="text-gray-600 text-xs">なし</span>
                     }
                   </div>
