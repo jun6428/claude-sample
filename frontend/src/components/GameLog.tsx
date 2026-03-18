@@ -44,7 +44,7 @@ export default function GameLog({ log, chatLog, myPlayerIdx, playerColors, onSen
   };
 
   return (
-    <div className="bg-gray-800 rounded-lg p-3 flex flex-col h-full">
+    <div className="bg-gray-800 rounded-lg p-3 flex flex-col" style={{ height: '480px' }}>
       <h3 className="text-white font-bold text-sm mb-2 flex-shrink-0">ログ / チャット</h3>
       <div className="overflow-y-auto flex-1 space-y-1 mb-2">
         {stream.length === 0 ? (

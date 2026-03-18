@@ -7,9 +7,6 @@ module.exports = {
   ],
   theme: {
     extend: {
-      screens: {
-        'landscape': { 'raw': '(orientation: landscape) and (max-width: 1023px)' },
-      },
       colors: {
         wood: '#228B22',
         brick: '#8B4513',
