@@ -113,7 +113,7 @@ export default function GamePage() {
       {/* Header */}
       <header className="bg-gray-800 border-b border-gray-700 px-4 py-2 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
-          <span className="text-white font-bold text-lg">🏝️ カタン</span>
+          <span className="text-white font-bold text-lg">🏝️ ネオカタソ</span>
           <span className="text-gray-500 text-sm font-mono">#{gameId}</span>
         </div>
         <div className="flex items-center gap-3">
