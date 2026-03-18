@@ -9,22 +9,26 @@ steps:
       - '--build-arg'
       - 'NEXT_PUBLIC_COMMIT_SHA=$SHORT_SHA'
       - '-t'
-      - 'asia-northeast1-docker.pkg.dev/m2st-net/cataso/frontend'
+      - 'asia-northeast1-docker.pkg.dev/m2st-net/cataso/frontend:latest'
       - 'frontend'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'asia-northeast1-docker.pkg.dev/m2st-net/cataso/frontend:latest'
 
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: bash
     args:
       - '-c'
       - |
-        DIGEST=$(gcloud artifacts docker images describe asia-northeast1-docker.pkg.dev/m2st-net/cataso/frontend:latest --format="value(image_summary.digest)")
+        DIGEST=$$(gcloud artifacts docker images describe \
+          asia-northeast1-docker.pkg.dev/m2st-net/cataso/frontend:latest \
+          --format="value(image_summary.digest)") && \
         gcloud run deploy cataso-frontend \
           --image=asia-northeast1-docker.pkg.dev/m2st-net/cataso/frontend@$$DIGEST \
           --region=asia-northeast1 \
           --platform=managed
-
-images:
-  - 'asia-northeast1-docker.pkg.dev/m2st-net/cataso/frontend'
 
 options:
   logging: CLOUD_LOGGING_ONLY

@@ -3,22 +3,26 @@ steps:
     args:
       - 'build'
       - '-t'
-      - 'asia-northeast1-docker.pkg.dev/m2st-net/cataso/backend'
+      - 'asia-northeast1-docker.pkg.dev/m2st-net/cataso/backend:latest'
       - 'backend'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'asia-northeast1-docker.pkg.dev/m2st-net/cataso/backend:latest'
 
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: bash
     args:
       - '-c'
       - |
-        DIGEST=$(gcloud artifacts docker images describe asia-northeast1-docker.pkg.dev/m2st-net/cataso/backend:latest --format="value(image_summary.digest)")
+        DIGEST=$$(gcloud artifacts docker images describe \
+          asia-northeast1-docker.pkg.dev/m2st-net/cataso/backend:latest \
+          --format="value(image_summary.digest)") && \
         gcloud run deploy cataso-backend \
           --image=asia-northeast1-docker.pkg.dev/m2st-net/cataso/backend@$$DIGEST \
           --region=asia-northeast1 \
           --platform=managed
-
-images:
-  - 'asia-northeast1-docker.pkg.dev/m2st-net/cataso/backend'
 
 options:
   logging: CLOUD_LOGGING_ONLY
