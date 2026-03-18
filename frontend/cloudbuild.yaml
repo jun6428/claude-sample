@@ -6,6 +6,8 @@ steps:
       - 'NEXT_PUBLIC_API_URL=https://api-cataso.m2st.org'
       - '--build-arg'
       - 'NEXT_PUBLIC_WS_URL=wss://api-cataso.m2st.org'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_COMMIT_SHA=$SHORT_SHA'
       - '-t'
       - 'asia-northeast1-docker.pkg.dev/m2st-net/cataso/frontend'
       - 'frontend'

@@ -143,7 +143,12 @@ export default function HomePage() {
         <div className="mt-6 text-center">
           <p className="text-gray-500 text-sm">2〜4人でプレイ</p>
           <p className="text-gray-600 text-xs mt-1">
-            バックエンド: FastAPI | フロントエンド: Next.js
+            {process.env.NEXT_PUBLIC_DEV_MODE === 'true' && (
+              <span className="text-yellow-600 font-bold mr-2">DEV MODE</span>
+            )}
+            {process.env.NEXT_PUBLIC_COMMIT_SHA
+              ? `v${process.env.NEXT_PUBLIC_COMMIT_SHA}`
+              : 'local'}
           </p>
         </div>
       </div>
