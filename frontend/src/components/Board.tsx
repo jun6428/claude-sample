@@ -168,9 +168,9 @@ export default function Board({ gameState, myPlayerIdx, sendAction, selectedActi
     <div className="overflow-auto flex items-center justify-center">
       <svg
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-        width="100%"
-        height="100%"
-        style={{ maxWidth: svgWidth, maxHeight: svgHeight }}
+        width={svgWidth}
+        height={svgHeight}
+        style={{ maxWidth: '100%', maxHeight: '100%' }}
       >
         <g transform={`translate(${offsetX}, ${offsetY})`}>
           {/* Render hexes */}
