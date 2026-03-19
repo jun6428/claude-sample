@@ -636,6 +636,16 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
             </div>
           )}
 
+          {/* Declare victory */}
+          {canAct && myPlayerIdx !== null && calculateHonor(myPlayerIdx, gameState) >= 10 && (
+            <button
+              onClick={() => sendAction({ action: 'declare_victory' })}
+              className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-2 px-4 rounded transition-colors"
+            >
+              🏆 勝利宣言
+            </button>
+          )}
+
           {/* End turn */}
           {canAct && (
             <button

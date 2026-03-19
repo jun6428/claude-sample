@@ -136,6 +136,8 @@ class ConnectionManager:
             await self._handle_steal_from(game_id, player_idx, websocket, state, data)
         elif action == "end_turn":
             await self._handle_end_turn(game_id, player_idx, websocket, state)
+        elif action == "declare_victory":
+            await self._handle_declare_victory(game_id, player_idx, websocket, state)
         elif action == "use_year_of_plenty":
             await self._handle_use_year_of_plenty(game_id, player_idx, websocket, state, data)
         elif action == "use_road_building":
@@ -572,9 +574,6 @@ class ConnectionManager:
         state.update_longest_road()
         state.add_log(f"{state.players[player_idx].name} built a road.")
 
-        winner = state.check_winner()
-        if winner is not None:
-            state.end_game(winner)
 
         await self.broadcast_state(game_id)
 
@@ -615,9 +614,6 @@ class ConnectionManager:
         settlement_piece.location = vertex_id
         state.add_log(f"{state.players[player_idx].name} built a settlement.")
 
-        winner = state.check_winner()
-        if winner is not None:
-            state.end_game(winner)
 
         await self.broadcast_state(game_id)
 
@@ -664,9 +660,6 @@ class ConnectionManager:
         city_piece.location = vertex_id
         state.add_log(f"{state.players[player_idx].name} upgraded to a city.")
 
-        winner = state.check_winner()
-        if winner is not None:
-            state.end_game(winner)
 
         await self.broadcast_state(game_id)
 
@@ -830,9 +823,6 @@ class ConnectionManager:
         card = state.draw_grace_card(player_idx)
         state.add_log(f"{state.players[player_idx].name} received a grace card.")
 
-        winner = state.check_winner()
-        if winner is not None:
-            state.end_game(winner)
 
         await self.broadcast_state(game_id)
 
@@ -864,6 +854,19 @@ class ConnectionManager:
         state.trade_offer = None
         state.add_log(f"{state.players[state.current_player_idx].name}'s turn. Roll the dice!")
 
+        await self.broadcast_state(game_id)
+
+    async def _handle_declare_victory(self, game_id: str, player_idx: int, websocket: WebSocket, state: GameState):
+        if state.phase != "playing":
+            await self.send_error(websocket, "Not in playing phase")
+            return
+        if state.current_player_idx != player_idx:
+            await self.send_error(websocket, "Not your turn")
+            return
+        if state.get_honor(player_idx) < 10:
+            await self.send_error(websocket, "Not enough victory points to declare victory")
+            return
+        state.end_game(player_idx)
         await self.broadcast_state(game_id)
 
     async def _handle_propose_trade(self, game_id: str, player_idx: int, websocket: WebSocket, state: GameState, data: dict):

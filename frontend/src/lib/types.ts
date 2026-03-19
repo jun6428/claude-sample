@@ -142,6 +142,7 @@ export type GameAction =
   | { action: 'discard_resources'; resources: Partial<Record<ResourceType, number>> }
   | { action: 'steal_from'; target_player_idx: number }
   | { action: 'end_turn' }
+  | { action: 'declare_victory' }
   | { action: 'buy_grace_card' }
   | { action: 'use_knight' }
   | { action: 'use_road_building' }
