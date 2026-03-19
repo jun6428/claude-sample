@@ -101,7 +101,7 @@ export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: Play
     <div className="flex flex-col gap-1">
 
       {players.map((player, idx) => {
-        const isCurrentTurn = phase !== 'lobby' && phase !== 'ended' && current_player_idx === idx;
+        const isCurrentTurn = phase !== 'preparing' && phase !== 'ended' && current_player_idx === idx;
         const isMe = myPlayerIdx === idx;
         const playerColor = PLAYER_COLOR_MAP[player.color] || player.color;
         const isConnected = (gameState.connected_players ?? []).includes(player.name);
@@ -285,7 +285,7 @@ export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: Play
       })}
 
       {/* 着席/離席ボタン（開始前のみ） */}
-      {phase === 'lobby' && (() => {
+      {phase === 'preparing' && (() => {
         const myName = myPlayerIdx !== null ? players[myPlayerIdx]?.name : null;
         const isSeated = myPlayerIdx !== null;
         const isSpectator = !isSeated;

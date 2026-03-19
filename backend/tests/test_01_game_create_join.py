@@ -25,7 +25,7 @@ def test_get_game():
     assert r.status_code == 200
     data = r.json()
     assert data["game_id"] == game_id
-    assert data["phase"] == "lobby"
+    assert data["phase"] == "preparing"
     assert data["players"] == []
 
 

@@ -1,6 +1,6 @@
 export type ResourceType = 'wood' | 'brick' | 'sheep' | 'wheat' | 'ore';
 export type BuildingType = 'settlement' | 'city';
-export type GamePhase = 'lobby' | 'setup' | 'playing' | 'ended';
+export type GamePhase = 'preparing' | 'setup' | 'playing' | 'ended';
 export type SetupStep = 'settlement' | 'road';
 
 export interface Player {

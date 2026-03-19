@@ -263,7 +263,7 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
       .join(' + ');
   };
 
-  if (phase === 'lobby') {
+  if (phase === 'preparing') {
     return (
       <div className="bg-gray-800 rounded-lg p-4">
         <h2 className="text-white font-bold mb-3">ゲーム開始前</h2>

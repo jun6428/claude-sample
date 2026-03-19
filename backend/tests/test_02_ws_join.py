@@ -33,7 +33,7 @@ async def test_single_player_join():
     async with aiohttp.ClientSession() as session:
         ws, msg = await connect(session, game_id, "Alice")
         assert msg["type"] == "game_state"
-        assert msg["state"]["phase"] == "lobby"
+        assert msg["state"]["phase"] == "preparing"
         players = msg["state"]["players"]
         assert len(players) == 1
         assert players[0]["name"] == "Alice"

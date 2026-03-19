@@ -87,7 +87,7 @@ class Player:
 @dataclass
 class GameState:
     game_id: str
-    phase: str  # "lobby", "setup", "playing", "ended"
+    phase: str  # "preparing", "setup", "playing", "ended"
     players: List[Player]
     board: Board
     current_player_idx: int = 0
@@ -572,12 +572,12 @@ class GameState:
 
 
 def create_game_state(game_id: str) -> GameState:
-    """Create a new game state in lobby phase."""
+    """Create a new game state in preparing phase."""
     board = Board()
     desert_hex = board.find_desert()
     state = GameState(
         game_id=game_id,
-        phase="lobby",
+        phase="preparing",
         players=[],
         board=board,
         robber_hex=desert_hex or "",

@@ -174,7 +174,7 @@ class ConnectionManager:
 
     async def _handle_take_seat(self, game_id: str, player_name: str, websocket: WebSocket, state: GameState):
         """着席: 観戦者 → プレイヤー"""
-        if state.phase != "lobby":
+        if state.phase != "preparing":
             await self.send_error(websocket, "Game already started")
             return
         if any(p.name == player_name for p in state.players):
@@ -189,7 +189,7 @@ class ConnectionManager:
 
     async def _handle_leave_seat(self, game_id: str, player_name: str, player_idx: int, websocket: WebSocket, state: GameState):
         """離席: プレイヤー → 観戦者"""
-        if state.phase != "lobby":
+        if state.phase != "preparing":
             await self.send_error(websocket, "ゲーム開始後は離席できません")
             return
         state.players = [p for p in state.players if p.name != player_name]
@@ -200,7 +200,7 @@ class ConnectionManager:
         await self.broadcast_state(game_id)
 
     async def _handle_start_game(self, game_id: str, player_idx: int, websocket: WebSocket, state: GameState):
-        if state.phase != "lobby":
+        if state.phase != "preparing":
             await self.send_error(websocket, "Game already started")
             return
         if len(state.players) < 2:

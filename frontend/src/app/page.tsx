@@ -8,7 +8,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 function phaseLabel(phase: string): string {
   switch (phase) {
-    case 'lobby': return '開始前';
+    case 'preparing': return '開始前';
     case 'setup': return '初期配置';
     case 'playing': return 'プレイ中';
     case 'ended': return '終了';

@@ -162,7 +162,7 @@ export default function GamePage() {
                   {spectatorNames.map((name) => (
                     <div key={name} className="flex items-center gap-1.5">
                       <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-green-400" />
-                      {phase !== 'lobby' && <span className="text-gray-500 text-xs">👁</span>}
+                      {phase !== 'preparing' && <span className="text-gray-500 text-xs">👁</span>}
                       <span className="text-gray-500 text-xs truncate">{name}</span>
                     </div>
                   ))}
@@ -225,7 +225,7 @@ export default function GamePage() {
 
 function phaseLabel(phase: string): string {
   switch (phase) {
-    case 'lobby': return '開始前';
+    case 'preparing': return '開始前';
     case 'setup': return '初期配置';
     case 'playing': return 'プレイ中';
     case 'ended': return '終了';
