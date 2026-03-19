@@ -9,15 +9,21 @@ from .state import (
 )
 
 
+MAX_ROOMS = 10
+
 class ConnectionManager:
     def __init__(self):
         self.games: Dict[str, GameState] = {}
         # game_id -> list of (player_name, websocket)
         self.connections: Dict[str, List[tuple]] = {}
+        self._room_counter: int = 0
 
-    def create_game(self) -> str:
+    def create_game(self) -> Optional[str]:
+        if len(self.games) >= MAX_ROOMS:
+            return None
+        self._room_counter += 1
         game_id = str(uuid.uuid4())[:8]
-        state = create_game_state(game_id)
+        state = create_game_state(game_id, room_number=self._room_counter)
         self.games[game_id] = state
         self.connections[game_id] = []
         return game_id

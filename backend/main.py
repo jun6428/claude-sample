@@ -31,6 +31,8 @@ async def root():
 async def create_game():
     """Create a new game room."""
     game_id = manager.create_game()
+    if game_id is None:
+        raise HTTPException(status_code=503, detail="部屋が満室です（最大10部屋）")
     return {"game_id": game_id}
 
 
@@ -50,6 +52,7 @@ async def list_games():
     for game_id, state in manager.games.items():
         games.append({
             "game_id": game_id,
+            "room_number": state.room_number,
             "phase": state.phase,
             "player_count": len(state.players),
             "players": [p.name for p in state.players],
@@ -72,6 +75,18 @@ async def load_snapshot(game_id: str, data: dict):
     if game_id not in manager.games:
         raise HTTPException(status_code=404, detail="Game not found")
     manager.games[game_id] = GameState.from_dict(data)
+    return {"ok": True}
+
+
+@app.delete("/api/games")
+async def reset_games():
+    """テスト用: 全ゲームをリセット（DEV_MODE時のみ）"""
+    import os
+    if os.getenv("DEV_MODE") != "true":
+        raise HTTPException(status_code=403, detail="Not allowed")
+    manager.games.clear()
+    manager.connections.clear()
+    manager._room_counter = 0
     return {"ok": True}
 
 

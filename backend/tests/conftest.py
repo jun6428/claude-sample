@@ -7,6 +7,12 @@ import httpx
 import aiohttp
 import pytest
 
+@pytest.fixture(autouse=True)
+def reset_manager():
+    """各テスト前にサーバのゲーム状態をリセット"""
+    httpx.delete(f"{BASE}/api/games")
+    yield
+
 BASE = "http://localhost:8000"
 WS = "ws://localhost:8000"
 HEADERS = {"Origin": "http://localhost:3000"}

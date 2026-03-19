@@ -87,6 +87,7 @@ class Player:
 @dataclass
 class GameState:
     game_id: str
+    room_number: int
     phase: str  # "preparing", "setup", "playing", "ended"
     players: List[Player]
     board: Board
@@ -420,6 +421,7 @@ class GameState:
     def to_dict(self) -> dict:
         return {
             "game_id": self.game_id,
+            "room_number": self.room_number,
             "phase": self.phase,
             "players": [p.to_dict() for p in self.players],
             "board": self.board.to_dict(),
@@ -531,6 +533,7 @@ class GameState:
 
         return cls(
             game_id=data['game_id'],
+            room_number=data.get('room_number', 0),
             phase=data['phase'],
             players=players,
             board=board,
@@ -571,12 +574,13 @@ class GameState:
         )
 
 
-def create_game_state(game_id: str) -> GameState:
+def create_game_state(game_id: str, room_number: int = 0) -> GameState:
     """Create a new game state in preparing phase."""
     board = Board()
     desert_hex = board.find_desert()
     state = GameState(
         game_id=game_id,
+        room_number=room_number,
         phase="preparing",
         players=[],
         board=board,
