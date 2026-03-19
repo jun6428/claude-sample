@@ -104,7 +104,6 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, player_name: st
         manager.disconnect(game_id, player_name, websocket)
         state = manager.get_game(game_id)
         if state:
-            state.add_log(f"{player_name} disconnected.")
             await manager.broadcast_state(game_id)
     except Exception as e:
         manager.disconnect(game_id, player_name, websocket)
