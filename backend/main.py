@@ -51,6 +51,7 @@ async def list_games():
             "game_id": game_id,
             "room_number": state.room_number,
             "phase": state.phase,
+            "connected_count": len(manager.connections.get(game_id, [])),
             "player_count": len(state.players),
             "players": [p.name for p in state.players],
         })

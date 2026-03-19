@@ -6,8 +6,7 @@ import { useGameStore } from '@/store/gameStore';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-type Room = { game_id: string; room_number: number; phase: string; player_count: number; players: string[] };
-type Selection = { type: 'join'; room: Room };
+type Room = { game_id: string; room_number: number; phase: string; connected_count: number; player_count: number; players: string[] };
 
 function PhaseTag({ phase }: { phase: string }) {
   const map: Record<string, { label: string; className: string }> = {
@@ -20,23 +19,94 @@ function PhaseTag({ phase }: { phase: string }) {
   return <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${className}`}>{label}</span>;
 }
 
+function RoomRow({ room, onEnter }: { room: Room; onEnter: (gameId: string, name: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [playerName, setPlayerName] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const toggle = () => {
+    setOpen(o => !o);
+    setError('');
+    if (!open) setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  const handleEnter = async () => {
+    if (!playerName.trim()) { setError('名前を入力してください'); return; }
+    setIsLoading(true);
+    setError('');
+    try {
+      await onEnter(room.game_id, playerName.trim());
+    } catch (e: any) {
+      setError(e.message || 'エラーが発生しました');
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className={`border-b border-gray-700 last:border-b-0 ${open ? 'bg-gray-750' : ''}`}>
+      {/* Row header */}
+      <button
+        onClick={toggle}
+        className={`w-full flex items-center justify-between px-5 py-3.5 transition-colors text-left
+          ${open ? 'bg-blue-900/30 border-l-2 border-l-blue-500' : 'hover:bg-gray-700/50'}`}
+      >
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-white text-sm font-medium">部屋{room.room_number}</span>
+            <span className="text-gray-300 text-xs font-medium">🪑 {room.player_count} / 4</span>
+            <span className="text-gray-300 text-xs font-medium">👥 {room.connected_count} / 20</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs truncate">
+            <PhaseTag phase={room.phase} />
+            <span className="text-gray-400">プレイヤー: {room.players.join(', ')}</span>
+          </div>
+        </div>
+        <span className={`text-gray-400 text-xs ml-3 flex-shrink-0 transition-transform ${open ? 'rotate-90' : ''}`}>
+          {room.phase === 'preparing' ? '入室 ›' : '観戦 ›'}
+        </span>
+      </button>
+
+      {/* Accordion: name input */}
+      {open && (
+        <div className="px-5 pb-4 pt-2 bg-gray-900/40">
+          <input
+            ref={inputRef}
+            type="text"
+            value={playerName}
+            onChange={(e) => setPlayerName(e.target.value)}
+            placeholder="あなたの名前..."
+            maxLength={20}
+            className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-600 placeholder-gray-500 mb-2"
+            onKeyDown={(e) => { if (e.key === 'Enter') handleEnter(); }}
+          />
+          {error && <p className="text-red-400 text-xs mb-2">{error}</p>}
+          <button
+            onClick={handleEnter}
+            disabled={isLoading}
+            className="w-full bg-blue-500 hover:bg-blue-400 disabled:bg-gray-600 text-white font-bold py-3 rounded-lg transition-all text-base shadow-lg shadow-blue-900/50"
+          >
+            {isLoading ? '接続中...' : '入室する'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function HomePage() {
   const router = useRouter();
   const setGameId = useGameStore((s) => s.setGameId);
   const setPlayerName = useGameStore((s) => s.setPlayerName);
 
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [selection, setSelection] = useState<Selection | null>(null);
-  const [playerName, setPlayerNameLocal] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const nameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchRooms = async () => {
       try {
         const res = await fetch(`${API_URL}/api/games`);
-        if (res.ok) setRooms((await res.json()).games);
+        if (res.ok) setRooms((await res.json()).games.sort((a: Room, b: Room) => a.room_number - b.room_number));
       } catch {}
     };
     fetchRooms();
@@ -44,28 +114,10 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (selection) {
-      setError('');
-      setTimeout(() => nameInputRef.current?.focus(), 50);
-    }
-  }, [selection]);
-
-  const handleEnter = async () => {
-    if (!playerName.trim()) { setError('名前を入力してください'); return; }
-    if (!selection) return;
-    setIsLoading(true);
-    setError('');
-    try {
-      const gameId = selection.room.game_id;
-      setGameId(gameId);
-      setPlayerName(playerName.trim());
-      router.push(`/game/${gameId}`);
-    } catch (e: any) {
-      setError(e.message || 'エラーが発生しました');
-    } finally {
-      setIsLoading(false);
-    }
+  const handleEnter = async (gameId: string, name: string) => {
+    setGameId(gameId);
+    setPlayerName(name);
+    router.push(`/game/${gameId}`);
   };
 
   return (
@@ -78,74 +130,15 @@ export default function HomePage() {
           <p className="text-gray-400 text-sm">オンラインボードゲーム / 2〜4人</p>
         </div>
 
-        {/* Name input panel (appears after selection) */}
-        {selection && (
-          <div className="mb-4 bg-gray-800 rounded-2xl p-5 border border-gray-600 shadow-2xl">
-            <div className="flex items-center gap-2 mb-4">
-              <button
-                onClick={() => { setSelection(null); setError(''); }}
-                className="text-gray-400 hover:text-white transition-colors text-sm"
-              >
-                ← 戻る
-              </button>
-              <span className="text-gray-500 text-sm">|</span>
-              <span className="text-gray-300 text-sm">
-                {`部屋${selection.room.room_number} に入室`}
-              </span>
-            </div>
-            <input
-              ref={nameInputRef}
-              type="text"
-              value={playerName}
-              onChange={(e) => setPlayerNameLocal(e.target.value)}
-              placeholder="あなたの名前..."
-              maxLength={20}
-              className="w-full bg-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-600 placeholder-gray-500 mb-3"
-              onKeyDown={(e) => { if (e.key === 'Enter') handleEnter(); }}
-            />
-            {error && <p className="text-red-400 text-xs mb-3">{error}</p>}
-            <button
-              onClick={handleEnter}
-              disabled={isLoading}
-              className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 text-white font-bold py-3 rounded-xl transition-all"
-            >
-              {isLoading ? '接続中...' : '入室する'}
-            </button>
-          </div>
-        )}
-
         {/* Room list */}
         <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
-
-          <div className="divide-y divide-gray-700">
-              {rooms.map((room) => {
-                const isSelected = selection?.type === 'join' && selection.room.game_id === room.game_id;
-                return (
-                  <button
-                    key={room.game_id}
-                    onClick={() => setSelection({ type: 'join', room })}
-                    className={`w-full flex items-center justify-between px-5 py-3.5 transition-colors text-left
-                      ${isSelected
-                        ? 'bg-blue-900/40 border-l-2 border-l-blue-500'
-                        : 'hover:bg-gray-700/50'}`}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-white text-sm font-medium">部屋{room.room_number}</span>
-                        <PhaseTag phase={room.phase} />
-                        <span className="text-gray-500 text-xs">{room.player_count}/4人</span>
-                      </div>
-                      <div className="text-gray-400 text-xs truncate">
-                        {room.players.length > 0 ? room.players.join(', ') : '（まだ誰もいません）'}
-                      </div>
-                    </div>
-                    <span className="text-gray-400 text-xs ml-3 flex-shrink-0">
-                      {room.phase === 'preparing' ? '入室 →' : '観戦 →'}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+          {rooms.length === 0 ? (
+            <div className="px-5 py-8 text-center text-gray-500 text-sm">読み込み中...</div>
+          ) : (
+            rooms.map((room) => (
+              <RoomRow key={room.game_id} room={room} onEnter={handleEnter} />
+            ))
+          )}
         </div>
 
         {/* Version */}

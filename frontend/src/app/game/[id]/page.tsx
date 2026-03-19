@@ -28,6 +28,16 @@ export default function GamePage() {
   const [resolvedPlayerName, setResolvedPlayerName] = useState(playerName);
   const [isReady, setIsReady] = useState(false);
   const [boardCssScale, setBoardCssScale] = useState(1);
+  const [roomNumber, setRoomNumber] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!gameId) return;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    fetch(`${apiUrl}/api/games/${gameId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.room_number) setRoomNumber(d.room_number); })
+      .catch(() => {});
+  }, [gameId]);
 
   // If arrived directly (no name in store), show name prompt
   useEffect(() => {
@@ -58,9 +68,14 @@ export default function GamePage() {
     return (
       <main className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
         <div className="bg-gray-800 rounded-2xl p-6 w-full max-w-sm border border-gray-700">
-          <h2 className="text-white text-xl font-bold mb-4">ゲームに参加</h2>
+          <div className="text-center mb-5">
+            <p className="text-2xl font-bold text-white mb-1">🏝️ ネオカタソ</p>
+            <p className="text-blue-400 font-semibold text-base">
+              {roomNumber !== null ? `部屋 ${roomNumber}` : '読み込み中...'}
+            </p>
+          </div>
           <p className="text-gray-400 text-sm mb-4">
-            ゲームID: <span className="text-blue-400 font-mono">{gameId}</span>
+            URLから直接参加する場合はプレイヤー名を入力してください
           </p>
           <input
             type="text"
@@ -93,10 +108,13 @@ export default function GamePage() {
     return (
       <main className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-white text-2xl mb-4">
+          <p className="text-2xl font-bold text-white mb-1">🏝️ ネオカタソ</p>
+          <p className="text-blue-400 font-semibold text-base mb-6">
+            {roomNumber !== null ? `部屋 ${roomNumber}` : ''}
+          </p>
+          <div className="text-gray-300 text-lg mb-2">
             {isConnected ? 'ゲームを読み込み中...' : 'サーバーに接続中...'}
           </div>
-          <div className="text-gray-400 text-sm">ゲームID: {gameId}</div>
           <div className="mt-4 w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
         </div>
       </main>
@@ -115,7 +133,7 @@ export default function GamePage() {
       <header className="bg-gray-800 border-b border-gray-700 px-4 py-2 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
           <span className="text-white font-bold text-lg">🏝️ ネオカタソ</span>
-          <span className="text-gray-500 text-sm font-mono">#{gameId}</span>
+          <span className="text-gray-500 text-sm">部屋{gameState.room_number}</span>
         </div>
         <div className="flex items-center gap-3">
           <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'}`} />

@@ -55,6 +55,7 @@ export interface Building {
 
 export interface GameState {
   game_id: string;
+  room_number: number;
   phase: GamePhase;
   players: Player[];
   board: BoardData;
