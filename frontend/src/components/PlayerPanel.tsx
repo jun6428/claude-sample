@@ -104,6 +104,7 @@ export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: Play
         const isCurrentTurn = phase !== 'lobby' && phase !== 'ended' && current_player_idx === idx;
         const isMe = myPlayerIdx === idx;
         const playerColor = PLAYER_COLOR_MAP[player.color] || player.color;
+        const isConnected = (gameState.connected_players ?? []).includes(player.name);
         const playerResources = resources[String(idx)] || {};
 
         return (
@@ -117,6 +118,10 @@ export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: Play
           >
             <div className={`flex items-center justify-between ${isMe ? 'mb-1' : 'mb-0'}`}>
               <div className="flex items-center gap-2">
+                {isConnected
+                  ? <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-green-400" />
+                  : <span className="text-xs leading-none">❌</span>
+                }
                 <div
                   className="w-3 h-3 rounded-full flex-shrink-0"
                   style={{ backgroundColor: playerColor }}

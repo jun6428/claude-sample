@@ -86,6 +86,7 @@ export interface GameState {
   pending_road_building: number;
   grace_card_used_this_turn: boolean;
   chat_log: { player_idx: number; name: string; message: string; log_offset: number }[];
+  connected_players: string[];
   trade_offer: {
     offerer_idx: number;
     give: Partial<Record<ResourceType, number>>;

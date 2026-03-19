@@ -66,7 +66,10 @@ class ConnectionManager:
     async def broadcast_state(self, game_id: str):
         state = self.games.get(game_id)
         if state:
-            await self.broadcast(game_id, {"type": "game_state", "state": state.to_dict()})
+            connected = list({pn for pn, _ in self.connections.get(game_id, [])})
+            state_dict = state.to_dict()
+            state_dict["connected_players"] = connected
+            await self.broadcast(game_id, {"type": "game_state", "state": state_dict})
 
     # ===== Action Handlers =====
 

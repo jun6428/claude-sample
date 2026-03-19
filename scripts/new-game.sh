@@ -16,7 +16,8 @@ tell application "Google Chrome"
   set gameURL to "http://localhost:3000/game/$GAME_ID"
   set playerNames to {"p1", "p2", "p3", "p4"}
   repeat with i from 1 to count of windows
-    set URL of tab 1 of window i to gameURL
+    make new tab at end of tabs of window i
+    set URL of last tab of window i to gameURL
   end repeat
 end tell
 EOF
@@ -41,7 +42,7 @@ tell application "Google Chrome"
         }, 300);
       }
     "
-    execute tab 1 of window i javascript js
+    execute last tab of window i javascript js
   end repeat
 end tell
 EOF
