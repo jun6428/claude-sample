@@ -84,17 +84,7 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, player_name: st
         return
 
     await manager.connect(game_id, player_name, websocket)
-
-    # Auto-join if in lobby
-    if state.phase == "lobby":
-        existing = any(p.name == player_name for p in state.players)
-        if not existing:
-            await manager.handle_action(game_id, player_name, websocket, {"action": "join_game"})
-        else:
-            await manager.broadcast_state(game_id)
-    else:
-        # Reconnect: just send current state
-        await manager.broadcast_state(game_id)
+    await manager.handle_action(game_id, player_name, websocket, {"action": "join_game"})
 
     try:
         while True:

@@ -1,10 +1,20 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useGameStore } from '@/store/gameStore';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+function phaseLabel(phase: string): string {
+  switch (phase) {
+    case 'lobby': return '開始前';
+    case 'setup': return '初期配置';
+    case 'playing': return 'プレイ中';
+    case 'ended': return '終了';
+    default: return phase;
+  }
+}
 
 export default function HomePage() {
   const router = useRouter();
@@ -15,6 +25,22 @@ export default function HomePage() {
   const [joinGameId, setJoinGameId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [rooms, setRooms] = useState<{ game_id: string; phase: string; player_count: number; players: string[] }[]>([]);
+
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/games`);
+        if (res.ok) {
+          const data = await res.json();
+          setRooms(data.games);
+        }
+      } catch {}
+    };
+    fetchRooms();
+    const interval = setInterval(fetchRooms, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleCreateGame = async () => {
     if (!playerName.trim()) {
@@ -138,6 +164,34 @@ export default function HomePage() {
             </button>
           </div>
         </div>
+
+        {/* Room list */}
+        {rooms.length > 0 && (
+          <div className="mt-4 bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-700">
+              <h2 className="text-gray-300 text-sm font-medium">参加できる部屋</h2>
+            </div>
+            <div className="divide-y divide-gray-700">
+              {rooms.map((room) => (
+                <div key={room.game_id} className="flex items-center justify-between px-4 py-3">
+                  <div>
+                    <span className="text-white text-sm font-mono">#{room.game_id}</span>
+                    <span className="ml-2 text-gray-400 text-xs">{phaseLabel(room.phase)}</span>
+                    <div className="text-gray-500 text-xs mt-0.5">{room.players.join(', ')}</div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setJoinGameId(room.game_id);
+                    }}
+                    className="text-xs bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    参加
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Info */}
         <div className="mt-6 text-center">

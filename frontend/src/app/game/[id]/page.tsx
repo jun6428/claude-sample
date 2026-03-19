@@ -143,6 +143,33 @@ export default function GamePage() {
       <div className="flex flex-1 overflow-hidden">
         {/* Left panel: online layer (log, dev) */}
         <div className="flex-shrink-0 bg-gray-900 border-r border-gray-700 flex flex-col overflow-hidden" style={{ width: 'min(18vw, 256px)' }}>
+          {/* 入室者一覧 */}
+          <div className="flex-shrink-0 px-3 pt-3 pb-2 border-b border-gray-700">
+            <p className="text-gray-500 text-xs mb-1">入室中</p>
+            <div className="flex flex-col gap-0.5">
+              {(() => {
+                const connected = gameState.connected_players ?? [];
+                const playerNames = new Set(players.map(p => p.name));
+                const spectatorNames = connected.filter(n => !playerNames.has(n));
+                return (<>
+                  {players.map((p, i) => (
+                    <div key={i} className="flex items-center gap-1.5">
+                      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${connected.includes(p.name) ? 'bg-green-400' : 'bg-gray-600'}`} />
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: playerColors[i] }} />
+                      <span className="text-gray-300 text-xs truncate">{p.name}</span>
+                    </div>
+                  ))}
+                  {spectatorNames.map((name) => (
+                    <div key={name} className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-green-400" />
+                      {phase !== 'lobby' && <span className="text-gray-500 text-xs">👁</span>}
+                      <span className="text-gray-500 text-xs truncate">{name}</span>
+                    </div>
+                  ))}
+                </>);
+              })()}
+            </div>
+          </div>
           <div className="flex-1 overflow-hidden p-3">
             <GameLog
               log={log}
@@ -198,8 +225,8 @@ export default function GamePage() {
 
 function phaseLabel(phase: string): string {
   switch (phase) {
-    case 'lobby': return 'ロビー';
-    case 'setup': return 'セットアップ';
+    case 'lobby': return '開始前';
+    case 'setup': return '初期配置';
     case 'playing': return 'プレイ中';
     case 'ended': return '終了';
     default: return phase;

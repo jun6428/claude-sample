@@ -266,11 +266,11 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
   if (phase === 'lobby') {
     return (
       <div className="bg-gray-800 rounded-lg p-4">
-        <h2 className="text-white font-bold mb-3">ゲームロビー</h2>
+        <h2 className="text-white font-bold mb-3">ゲーム開始前</h2>
         <p className="text-gray-300 text-sm mb-3">
           プレイヤー: {players.length}/4
         </p>
-        {players.length >= 2 && (
+        {players.length >= 2 && myPlayerIdx !== null && (
           <button
             onClick={() => sendAction({ action: 'start_game' })}
             className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded transition-colors"

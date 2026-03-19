@@ -123,6 +123,8 @@ async def main():
         )
         conns.append((name, ws))
         await recv_state(ws)
+        await ws.send(json.dumps({"action": "take_seat"}))
+        await recv_state(ws)
         print(f"  {name} joined")
 
     # ゲーム開始

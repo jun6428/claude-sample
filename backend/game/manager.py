@@ -86,6 +86,14 @@ class ConnectionManager:
             await self._handle_join(game_id, player_name, websocket, state)
             return
 
+        if action == "take_seat":
+            await self._handle_take_seat(game_id, player_name, websocket, state)
+            return
+
+        if action == "leave_seat":
+            await self._handle_leave_seat(game_id, player_name, player_idx, websocket, state)
+            return
+
         if player_idx is None:
             await self.send_error(websocket, "Player not in game")
             return
@@ -161,25 +169,34 @@ class ConnectionManager:
         await self.broadcast_state(game_id)
 
     async def _handle_join(self, game_id: str, player_name: str, websocket: WebSocket, state: GameState):
+        """接続時: 入室（状態変化なし、broadcastのみ）"""
+        await self.broadcast_state(game_id)
+
+    async def _handle_take_seat(self, game_id: str, player_name: str, websocket: WebSocket, state: GameState):
+        """着席: 観戦者 → プレイヤー"""
         if state.phase != "lobby":
-            # Allow reconnect
-            await self.broadcast_state(game_id)
+            await self.send_error(websocket, "Game already started")
             return
-
-        # Check if already in game
-        for p in state.players:
-            if p.name == player_name:
-                await self.broadcast_state(game_id)
-                return
-
+        if any(p.name == player_name for p in state.players):
+            return  # already seated
         if len(state.players) >= 4:
-            await self.send_error(websocket, "Game is full (max 4 players)")
+            await self.send_error(websocket, "席が埋まっています")
             return
-
         color = PLAYER_COLORS[len(state.players)]
-        player = Player(name=player_name, color=color)
-        state.players.append(player)
-        state.add_log(f"{player_name} joined the game as {color}.")
+        state.players.append(Player(name=player_name, color=color))
+        state.add_log(f"{player_name} が着席しました ({color}).")
+        await self.broadcast_state(game_id)
+
+    async def _handle_leave_seat(self, game_id: str, player_name: str, player_idx: int, websocket: WebSocket, state: GameState):
+        """離席: プレイヤー → 観戦者"""
+        if state.phase != "lobby":
+            await self.send_error(websocket, "ゲーム開始後は離席できません")
+            return
+        state.players = [p for p in state.players if p.name != player_name]
+        # PLAYER_COLORSを再割り当て
+        for i, p in enumerate(state.players):
+            p.color = PLAYER_COLORS[i]
+        state.add_log(f"{player_name} が離席しました.")
         await self.broadcast_state(game_id)
 
     async def _handle_start_game(self, game_id: str, player_idx: int, websocket: WebSocket, state: GameState):

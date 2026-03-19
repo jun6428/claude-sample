@@ -283,6 +283,35 @@ export default function PlayerPanel({ gameState, myPlayerIdx, sendAction }: Play
           </div>
         );
       })}
+
+      {/* 着席/離席ボタン（開始前のみ） */}
+      {phase === 'lobby' && (() => {
+        const myName = myPlayerIdx !== null ? players[myPlayerIdx]?.name : null;
+        const isSeated = myPlayerIdx !== null;
+        const isSpectator = !isSeated;
+        return (
+          <div className="mt-2 pt-2 border-t border-gray-700">
+            {isSpectator && (
+              <button
+                onClick={() => sendAction({ action: 'take_seat' })}
+                disabled={players.length >= 4}
+                className="w-full bg-green-700 hover:bg-green-600 disabled:bg-gray-700 disabled:text-gray-500 text-white text-xs font-bold py-1.5 rounded transition-colors"
+              >
+                {players.length >= 4 ? '席が埋まっています' : '着席する'}
+              </button>
+            )}
+            {isSeated && (
+              <button
+                onClick={() => sendAction({ action: 'leave_seat' })}
+                className="w-full bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs py-1.5 rounded transition-colors"
+              >
+                離席する
+              </button>
+            )}
+          </div>
+        );
+      })()}
+
     </div>
   );
 }

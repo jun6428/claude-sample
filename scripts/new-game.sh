@@ -28,7 +28,9 @@ sleep 3
 osascript << EOF
 tell application "Google Chrome"
   set playerNames to {"p1", "p2", "p3", "p4"}
-  repeat with i from 1 to count of windows
+  set winCount to count of windows
+  if winCount > 4 then set winCount to 4
+  repeat with i from 1 to winCount
     set pname to item i of playerNames
     set js to "
       const input = document.querySelector('input[placeholder*=\"プレイヤー名\"]');
