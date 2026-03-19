@@ -83,6 +83,10 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, player_name: st
         await websocket.close(code=4004, reason="Game not found")
         return
 
+    if len(manager.connections.get(game_id, [])) >= 20:
+        await websocket.close(code=4003, reason="Room is full")
+        return
+
     await manager.connect(game_id, player_name, websocket)
     await manager.handle_action(game_id, player_name, websocket, {"action": "join_game"})
 

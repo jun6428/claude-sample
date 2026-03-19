@@ -94,6 +94,10 @@ class ConnectionManager:
             await self._handle_leave_seat(game_id, player_name, player_idx, websocket, state)
             return
 
+        if action == "chat":
+            await self._handle_chat(game_id, player_name, player_idx, websocket, state, data)
+            return
+
         if player_idx is None:
             await self.send_error(websocket, "Player not in game")
             return
@@ -133,7 +137,7 @@ class ConnectionManager:
         elif action == "buy_grace_card":
             await self._handle_buy_grace_card(game_id, player_idx, websocket, state)
         elif action == "chat":
-            await self._handle_chat(game_id, player_idx, websocket, state, data)
+            await self._handle_chat(game_id, player_name, player_idx, websocket, state, data)
         elif action == "propose_trade":
             await self._handle_propose_trade(game_id, player_idx, websocket, state, data)
         elif action == "respond_trade":
@@ -156,13 +160,14 @@ class ConnectionManager:
         else:
             await self.send_error(websocket, f"Unknown action: {action}")
 
-    async def _handle_chat(self, game_id: str, player_idx: int, websocket: WebSocket, state: GameState, data: dict):
+    async def _handle_chat(self, game_id: str, player_name: str, player_idx: Optional[int], websocket: WebSocket, state: GameState, data: dict):
         message = str(data.get("message", "")).strip()
         if not message:
             return
         if len(message) > 200:
             message = message[:200]
-        entry = {"player_idx": player_idx, "name": state.players[player_idx].name, "message": message, "log_offset": len(state.log)}
+        name = state.players[player_idx].name if player_idx is not None else player_name
+        entry = {"player_idx": player_idx, "name": name, "message": message, "log_offset": len(state.log)}
         state.chat_log.append(entry)
         if len(state.chat_log) > 200:
             state.chat_log = state.chat_log[-200:]
