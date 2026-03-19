@@ -118,6 +118,37 @@ async def test_fifth_player_rejected():
 
 
 @pytest.mark.asyncio
+async def test_spectator_can_chat():
+    game_id = create_game()
+    async with aiohttp.ClientSession() as session:
+        # Aliceは着席、Bobは観戦者（take_seatしない）
+        ws_alice, _ = await connect_and_sit(session, game_id, "Alice")
+        ws_bob, _ = await connect(session, game_id, "Bob")
+        # Bobのjoin broadcastをAliceが受け取る
+        try:
+            await asyncio.wait_for(ws_alice.receive_json(), timeout=1.0)
+        except asyncio.TimeoutError:
+            pass
+
+        # 観戦者Bobがチャット送信
+        await ws_bob.send_json({"action": "chat", "message": "観戦中です"})
+
+        # Bobがbroadcastを受け取る
+        msg_bob = await asyncio.wait_for(ws_bob.receive_json(), timeout=2.0)
+        assert msg_bob["type"] == "game_state"
+        assert any(e["name"] == "Bob" and e["message"] == "観戦中です"
+                   for e in msg_bob["state"]["chat_log"])
+
+        # Aliceにもbroadcastされる
+        msg_alice = await asyncio.wait_for(ws_alice.receive_json(), timeout=2.0)
+        assert any(e["name"] == "Bob" and e["message"] == "観戦中です"
+                   for e in msg_alice["state"]["chat_log"])
+
+        await ws_alice.close()
+        await ws_bob.close()
+
+
+@pytest.mark.asyncio
 async def test_duplicate_player_not_added():
     game_id = create_game()
     async with aiohttp.ClientSession() as session:

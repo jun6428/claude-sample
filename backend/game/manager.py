@@ -96,6 +96,10 @@ class ConnectionManager:
             await self._handle_take_seat(game_id, player_name, websocket, state)
             return
 
+        if action == "new_game":
+            await self._handle_new_game(game_id, websocket, state)
+            return
+
         if action == "leave_seat":
             await self._handle_leave_seat(game_id, player_name, player_idx, websocket, state)
             return
@@ -181,6 +185,18 @@ class ConnectionManager:
 
     async def _handle_join(self, game_id: str, player_name: str, websocket: WebSocket, state: GameState):
         """接続時: 入室（状態変化なし、broadcastのみ）"""
+        await self.broadcast_state(game_id)
+
+    async def _handle_new_game(self, game_id: str, websocket: WebSocket, state: GameState):
+        """ゲーム終了後に同じ部屋で再スタート"""
+        if state.phase != "ended":
+            await self.send_error(websocket, "ゲームが終了していません")
+            return
+        old_chat = state.chat_log
+        new_state = create_game_state(game_id, room_number=state.room_number)
+        new_state.chat_log = old_chat
+        new_state.add_log("新しいゲームが始まります。着席してください。")
+        self.games[game_id] = new_state
         await self.broadcast_state(game_id)
 
     async def _handle_take_seat(self, game_id: str, player_name: str, websocket: WebSocket, state: GameState):

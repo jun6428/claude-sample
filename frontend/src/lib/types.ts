@@ -128,6 +128,7 @@ export type GameAction =
   | { action: 'join_game' }
   | { action: 'take_seat' }
   | { action: 'leave_seat' }
+  | { action: 'new_game' }
   | { action: 'start_game' }
   | { action: 'place_settlement'; vertex_id: string; is_city: boolean }
   | { action: 'place_road'; edge_id: string }

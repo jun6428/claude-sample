@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { PLAYER_COLOR_MAP } from '@/lib/types';
 
 interface ChatEntry {
-  player_idx: number;
+  player_idx: number | null;
   name: string;
   message: string;
   log_offset: number;
@@ -59,8 +59,7 @@ export default function GameLog({ log, chatLog, myPlayerIdx, playerColors, onSen
               );
             }
             const { entry } = item;
-            const color = playerColors[entry.player_idx] ?? '#9CA3AF';
-            const isMe = entry.player_idx === myPlayerIdx;
+            const color = entry.player_idx !== null ? (playerColors[entry.player_idx] ?? '#9CA3AF') : '#9CA3AF';
             return (
               <p key={`chat-${item.idx}`} className="text-xs">
                 <span className="font-bold" style={{ color }}>{entry.name}</span>
@@ -71,8 +70,7 @@ export default function GameLog({ log, chatLog, myPlayerIdx, playerColors, onSen
         )}
         <div ref={bottomRef} />
       </div>
-      {myPlayerIdx !== null && (
-        <div className="flex gap-1 flex-shrink-0">
+      <div className="flex gap-1 flex-shrink-0">
           <input
             type="text"
             value={input}
@@ -90,7 +88,6 @@ export default function GameLog({ log, chatLog, myPlayerIdx, playerColors, onSen
             送信
           </button>
         </div>
-      )}
     </div>
   );
 }
