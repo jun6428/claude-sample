@@ -340,7 +340,7 @@ export default function ActionPanel({ gameState, myPlayerIdx, sendAction }: Acti
           onClick={() => sendAction({ action: 'new_game' })}
           className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-lg transition-all text-sm mb-2"
         >
-          もう一度遊ぶ
+          新ゲーム生成
         </button>
         <button
           onClick={() => window.location.href = '/'}
