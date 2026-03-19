@@ -177,11 +177,11 @@ export default function GamePage() {
         </div>
 
         {/* Right panel: catan layer (players, actions) */}
-        <div className="flex-shrink-0 bg-gray-900 border-l border-gray-700 flex flex-col overflow-hidden" style={{ width: 'min(22vw, 288px)' }}>
-          <div className="flex-shrink-0 p-3 border-b border-gray-700">
+        <div className="flex-shrink-0 bg-gray-900 border-l border-gray-700 overflow-y-auto" style={{ width: 'min(22vw, 288px)' }}>
+          <div className="p-3 border-b border-gray-700">
             <PlayerPanel gameState={gameState} myPlayerIdx={myPlayerIdx} sendAction={sendAction} />
           </div>
-          <div className="flex-1 overflow-y-auto p-3">
+          <div className="p-3">
             <ActionPanel
               gameState={gameState}
               myPlayerIdx={myPlayerIdx}
