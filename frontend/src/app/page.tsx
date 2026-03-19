@@ -54,7 +54,7 @@ function RoomRow({ room, onEnter }: { room: Room; onEnter: (gameId: string, name
       >
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-white text-sm font-medium">部屋{room.room_number}</span>
+            <span className="text-white text-lg font-bold">部屋{room.room_number}</span>
             <span className="text-gray-300 text-xs font-medium">🪑 {room.player_count} / 4</span>
             <span className="text-gray-300 text-xs font-medium">👥 {room.connected_count} / 20</span>
           </div>
