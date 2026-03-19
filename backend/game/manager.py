@@ -178,7 +178,8 @@ class ConnectionManager:
             await self.send_error(websocket, "Game already started")
             return
         if any(p.name == player_name for p in state.players):
-            return  # already seated
+            await self.send_error(websocket, "Already seated")
+            return
         if len(state.players) >= 4:
             await self.send_error(websocket, "席が埋まっています")
             return

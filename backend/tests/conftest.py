@@ -45,12 +45,14 @@ async def make_clients(session, game_id: str, names: list[str]) -> list[GameClie
     for name in names:
         ws = await session.ws_connect(f"{WS}/ws/{game_id}/{name}", headers=HEADERS)
         client = GameClient(ws, name)
-        msg = await client.recv()
-        # 先に接続済みのクライアントへのbroadcastを消化
+        await client.recv()  # join broadcast
+        await client.send({"action": "take_seat"})  # 着席
+        # 先に接続済みのクライアントへのbroadcastを消化（接続時と着席時の2回分）
         for prev in clients:
-            try:
-                await prev.recv(timeout=0.5)
-            except asyncio.TimeoutError:
-                pass
+            while True:
+                try:
+                    await prev.recv(timeout=0.5)
+                except asyncio.TimeoutError:
+                    break
         clients.append(client)
     return clients

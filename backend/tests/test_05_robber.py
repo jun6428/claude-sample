@@ -16,6 +16,35 @@ from tests.test_03_setup_phase import find_valid_vertex, find_adjacent_edge
 from tests.test_04_turn_basic import setup_and_start
 
 
+async def _drain_pending_discards(all_clients: list):
+    """pending_discardsがあれば全員分auto-discardして解消する"""
+    for _ in range(len(all_clients)):
+        state = all_clients[0].state
+        pending = state.get("pending_discards", {})
+        if not pending:
+            break
+        for pidx_str, count in sorted(pending.items()):
+            pidx = int(pidx_str)
+            resources = state.get("resources", {}).get(pidx_str, {})
+            discard: dict = {}
+            remaining = count
+            for r, cnt in sorted(resources.items()):
+                if remaining <= 0:
+                    break
+                take = min(cnt, remaining)
+                if take > 0:
+                    discard[r] = take
+                    remaining -= take
+            disc_client = all_clients[pidx]
+            await disc_client.send({"action": "discard_resources", "resources": discard})
+            for c in all_clients:
+                if c != disc_client:
+                    try:
+                        await c.recv(timeout=0.5)
+                    except asyncio.TimeoutError:
+                        pass
+
+
 async def roll_until_seven(client, others, board, max_turns=40):
     """7が出るまでロールし続ける。7が出たらそのstateを返す。"""
     for _ in range(max_turns):
@@ -25,7 +54,9 @@ async def roll_until_seven(client, others, board, max_turns=40):
             except asyncio.TimeoutError: pass
         total = sum(msg["state"]["dice_values"])
         if total == 7:
-            return msg["state"]
+            # Handle any pending discards so the caller can safely call move_robber
+            await _drain_pending_discards([client] + others)
+            return client.state
         # 7でなければターン終了して次のターンで戻ってくるまで繰り返す
         await client.send({"action": "end_turn"})
         for c in others:
@@ -41,7 +72,8 @@ async def roll_until_seven(client, others, board, max_turns=40):
                     except asyncio.TimeoutError: pass
                 t2 = sum(r["state"]["dice_values"])
                 if t2 == 7:
-                    rob = r["state"]["robber_hex"]
+                    await _drain_pending_discards([client] + others)
+                    rob = other.state["robber_hex"]
                     for hid in board["hexes"]:
                         if hid != rob:
                             await other.send({"action": "move_robber", "hex_id": hid})
