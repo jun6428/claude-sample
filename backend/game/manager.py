@@ -9,7 +9,7 @@ from .state import (
 )
 
 
-MAX_ROOMS = 10
+NUM_ROOMS = 10
 
 class ConnectionManager:
     def __init__(self):
@@ -17,16 +17,16 @@ class ConnectionManager:
         # game_id -> list of (player_name, websocket)
         self.connections: Dict[str, List[tuple]] = {}
         self._room_counter: int = 0
+        self._initialize_rooms()
 
-    def create_game(self) -> Optional[str]:
-        if len(self.games) >= MAX_ROOMS:
-            return None
-        self._room_counter += 1
-        game_id = str(uuid.uuid4())[:8]
-        state = create_game_state(game_id, room_number=self._room_counter)
-        self.games[game_id] = state
-        self.connections[game_id] = []
-        return game_id
+    def _initialize_rooms(self):
+        """NUM_ROOMS 分の部屋を事前生成する"""
+        for i in range(1, NUM_ROOMS + 1):
+            game_id = str(uuid.uuid4())[:8]
+            state = create_game_state(game_id, room_number=i)
+            self.games[game_id] = state
+            self.connections[game_id] = []
+        self._room_counter = NUM_ROOMS
 
     def get_game(self, game_id: str) -> Optional[GameState]:
         return self.games.get(game_id)

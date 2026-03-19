@@ -7,7 +7,7 @@ import { useGameStore } from '@/store/gameStore';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 type Room = { game_id: string; room_number: number; phase: string; player_count: number; players: string[] };
-type Selection = { type: 'new' } | { type: 'join'; room: Room };
+type Selection = { type: 'join'; room: Room };
 
 function PhaseTag({ phase }: { phase: string }) {
   const map: Record<string, { label: string; className: string }> = {
@@ -57,14 +57,7 @@ export default function HomePage() {
     setIsLoading(true);
     setError('');
     try {
-      let gameId: string;
-      if (selection.type === 'new') {
-        const res = await fetch(`${API_URL}/api/games`, { method: 'POST' });
-        if (!res.ok) throw new Error('ゲームの作成に失敗しました');
-        gameId = (await res.json()).game_id;
-      } else {
-        gameId = selection.room.game_id;
-      }
+      const gameId = selection.room.game_id;
       setGameId(gameId);
       setPlayerName(playerName.trim());
       router.push(`/game/${gameId}`);
@@ -97,9 +90,7 @@ export default function HomePage() {
               </button>
               <span className="text-gray-500 text-sm">|</span>
               <span className="text-gray-300 text-sm">
-                {selection.type === 'new'
-                  ? '新しい部屋を作成'
-                  : `部屋${selection.room.room_number} に入室`}
+                {`部屋${selection.room.room_number} に入室`}
               </span>
             </div>
             <input
@@ -126,30 +117,7 @@ export default function HomePage() {
         {/* Room list */}
         <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
 
-          {/* Create new room */}
-          <button
-            onClick={() => setSelection({ type: 'new' })}
-            disabled={rooms.length >= 10}
-            className={`w-full flex items-center gap-3 px-5 py-4 transition-colors text-left border-b border-gray-700
-              ${rooms.length >= 10
-                ? 'opacity-40 cursor-not-allowed'
-                : selection?.type === 'new'
-                ? 'bg-green-900/40 border-l-2 border-l-green-500'
-                : 'hover:bg-gray-700/50'}`}
-          >
-            <span className="text-2xl">＋</span>
-            <span className="text-white font-bold">
-              {rooms.length >= 10 ? '部屋が満室です（10/10）' : '新しい部屋を作成'}
-            </span>
-          </button>
-
-          {/* Active rooms */}
-          {rooms.length === 0 ? (
-            <div className="px-5 py-6 text-center text-gray-500 text-sm">
-              アクティブな部屋はありません
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-700">
+          <div className="divide-y divide-gray-700">
               {rooms.map((room) => {
                 const isSelected = selection?.type === 'join' && selection.room.game_id === room.game_id;
                 return (
@@ -178,7 +146,6 @@ export default function HomePage() {
                 );
               })}
             </div>
-          )}
         </div>
 
         {/* Version */}

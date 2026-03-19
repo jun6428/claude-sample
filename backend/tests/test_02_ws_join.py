@@ -11,13 +11,11 @@ import httpx
 import aiohttp
 import pytest
 
+from tests.conftest import create_game
+
 BASE = "http://localhost:8000"
 WS = "ws://localhost:8000"
 HEADERS = {"Origin": "http://localhost:3000"}
-
-
-def create_game() -> str:
-    return httpx.post(f"{BASE}/api/games").json()["game_id"]
 
 
 async def connect(session, game_id, name):

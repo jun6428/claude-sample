@@ -29,11 +29,8 @@ async def root():
 
 @app.post("/api/games")
 async def create_game():
-    """Create a new game room."""
-    game_id = manager.create_game()
-    if game_id is None:
-        raise HTTPException(status_code=503, detail="部屋が満室です（最大10部屋）")
-    return {"game_id": game_id}
+    """廃止済み: 部屋は起動時に事前生成されます"""
+    raise HTTPException(status_code=410, detail="部屋の手動作成は廃止されました")
 
 
 @app.get("/api/games/{game_id}")
@@ -87,6 +84,7 @@ async def reset_games():
     manager.games.clear()
     manager.connections.clear()
     manager._room_counter = 0
+    manager._initialize_rooms()
     return {"ok": True}
 
 

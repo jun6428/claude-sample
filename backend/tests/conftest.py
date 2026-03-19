@@ -19,7 +19,11 @@ HEADERS = {"Origin": "http://localhost:3000"}
 
 
 def create_game() -> str:
-    return httpx.post(f"{BASE}/api/games").json()["game_id"]
+    """preparing フェーズの空き部屋を1つ返す"""
+    games = httpx.get(f"{BASE}/api/games").json()["games"]
+    available = [g for g in games if g["phase"] == "preparing" and g["player_count"] == 0]
+    assert available, "No available rooms"
+    return available[0]["game_id"]
 
 
 class GameClient:
